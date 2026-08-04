@@ -70,6 +70,11 @@ def collect_abdct_cases(abdct_root, num_cases=10):
         label_files = sorted(glob.glob(os.path.join(abdct_root, "**", "label*.nii.gz"), recursive=True))
 
     if not label_files:
+        # Try official Synapse format: *img.nii.gz + *seg.nii.gz
+        image_files = sorted(glob.glob(os.path.join(abdct_root, "**", "*img.nii.gz"), recursive=True))
+        label_files = sorted(glob.glob(os.path.join(abdct_root, "**", "*seg.nii.gz"), recursive=True))
+
+    if not label_files:
         print(f"[WARN] No label files found in {abdct_root}. Skipping Abd-CT.")
         return cases
 
