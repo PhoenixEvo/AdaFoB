@@ -1,9 +1,40 @@
 experiment:
   name: "adafob_pilot"
   seed: 2026
-  dataset: "SABS"
-  n_shot: 1
-  n_way: 1
-  epochs: 1
-  batch_size: 1
-  learning_rate: 1e-4
+  image_size: 256
+
+# Heuristic adaptive Np parameters
+heuristic:
+  alpha: 1.0
+  beta: 10.0
+  gamma: 1.0
+  np_min: 4
+  np_max: 24
+
+# Ring prior parameters (replicates FoB Eq. 1)
+ring_prior:
+  r_outer: 15
+  r_inner: 13
+
+# Skeleton prior parameters
+skeleton_prior:
+  normal_offset_px: 8
+
+# Pilot experiment settings
+pilot:
+  sam_checkpoint: "/kaggle/working/checkpoints/sam_vit_h_4b8939.pth"
+  num_abdct_cases: 10
+  num_brats_cases: 10
+  num_drive_cases: 5
+  max_total_cases: 40
+  arms:
+    - {name: "A1_ring_np5",       generator: "ring",     np: 5}
+    - {name: "A2_ring_np10",      generator: "ring",     np: 10}
+    - {name: "A3_ring_np20",      generator: "ring",     np: 20}
+    - {name: "A4_ring_heuristic", generator: "ring",     np: "heuristic"}
+    - {name: "A5_skel_heuristic", generator: "skeleton", np: "heuristic"}
+    - {name: "A6_skel_np10",      generator: "skeleton", np: 10}
+
+# BraTS label convention: tumor core = union of labels {1, 4}
+brats:
+  tumor_core_labels: [1, 4]

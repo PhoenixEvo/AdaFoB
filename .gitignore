@@ -12,11 +12,25 @@ ENV/
 env.bak/
 venv.bak/
 
-# Data
+# Data (never commit datasets)
 data/*
 !data/download_instructions.md
 
-# Logs
+# Large binary masks from pilot (regenerated on Kaggle)
+results/pilot/masks/
+
+# SAM checkpoints
+checkpoints/
+*.pth
+
+# Logs (regenerated)
 runs/
-logs/
+
+# Scratch
 notes/scratch/
+
+# Agent config
+.agent/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
