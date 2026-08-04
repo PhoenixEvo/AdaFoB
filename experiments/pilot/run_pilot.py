@@ -302,7 +302,14 @@ def build_arms(config):
 # ---------------------------------------------------------------------------
 # Main Pilot
 # ---------------------------------------------------------------------------
+import argparse
+
 def run_pilot():
+    parser = argparse.ArgumentParser(description="Run AdaFoB Pilot")
+    parser.add_argument("--dataset", type=str, default="all", help="Dataset to run (e.g., AbdCT, BraTS, DRIVE, or all)")
+    parser.add_argument("--arms", type=str, default="all", help="Comma-separated list of arms to run (e.g., A2_ring_np10,A6_skel_np10)")
+    args = parser.parse_args()
+
     config = load_pilot_config()
     heuristic_cfg = config.get("heuristic", {})
 
@@ -325,12 +332,19 @@ def run_pilot():
     if not cases:
         print("[ERROR] No pilot cases found. Run collect_shape_features.py first.")
         sys.exit(1)
+        
+    if args.dataset.lower() != "all":
+        cases = [c for c in cases if c["dataset"] == args.dataset]
     print(f"Loaded {len(cases)} pilot cases.")
 
     # Build arms
     arms = build_arms(config)
+    if args.arms.lower() != "all":
+        selected_arms = [a.strip() for a in args.arms.split(",")]
+        arms = [a for a in arms if a["name"] in selected_arms]
+        
     if not arms:
-        print("[ERROR] No arms defined in config.")
+        print("[ERROR] No arms defined or selected.")
         sys.exit(1)
     print(f"Arms: {[a['name'] for a in arms]}")
 
@@ -475,16 +489,35 @@ def run_pilot():
     # Save per-case metrics CSV
     # -----------------------------------------------------------------------
     metrics_path = os.path.join(results_dir, "pilot_metrics.csv")
+    
+    # Load existing metrics if they exist
+    combined_metrics = []
+    if os.path.isfile(metrics_path):
+        with open(metrics_path, "r") as f:
+            reader = csv.DictReader(f)
+            combined_metrics = list(reader)
+    
+    # Append new metrics (overwrite if case_id and arm match)
+    existing_keys = {(m["case_id"], m["arm"]) for m in combined_metrics}
+    for m in all_metrics:
+        key = (m["case_id"], m["arm"])
+        if key in existing_keys:
+            # Replace existing
+            idx = next(i for i, v in enumerate(combined_metrics) if (v["case_id"], v["arm"]) == key)
+            combined_metrics[idx] = m
+        else:
+            combined_metrics.append(m)
+
     with open(metrics_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["case_id", "dataset", "arm", "Np_used", "dice", "hd95"])
         writer.writeheader()
-        writer.writerows(all_metrics)
-    print(f"Saved metrics to {metrics_path}")
+        writer.writerows(combined_metrics)
+    print(f"Saved merged metrics to {metrics_path}")
 
     # -----------------------------------------------------------------------
     # Compute aggregate statistics
     # -----------------------------------------------------------------------
-    compute_summary_stats(all_metrics, results_dir)
+    compute_summary_stats(combined_metrics, results_dir)
 
     # -----------------------------------------------------------------------
     # Generate figures
@@ -560,6 +593,23 @@ def compute_summary_stats(all_metrics, results_dir):
                     )
                 except Exception as e:
                     wilcoxon_notes.append(f"Wilcoxon A5 vs A2 HD95: error ({e})")
+
+    # Wilcoxon tests on the compact subset (AbdCT) A2 vs A6
+    compact = df[df["dataset"] == "AbdCT"]
+    if len(compact) > 0:
+        a6_dice = compact[compact["arm"] == "A6_skel_np10"].set_index("case_id")["dice"].astype(float)
+        a2_dice = compact[compact["arm"] == "A2_ring_np10"].set_index("case_id")["dice"].astype(float)
+        common_ct = sorted(set(a6_dice.index) & set(a2_dice.index))
+        if len(common_ct) >= 3:
+            a6_vals = [float(a6_dice[cid]) for cid in common_ct]
+            a2_vals = [float(a2_dice[cid]) for cid in common_ct]
+            try:
+                stat, p = stats.wilcoxon(a6_vals, a2_vals)
+                wilcoxon_notes.append(
+                    f"Wilcoxon A6_skel vs A2_ring (Dice, AbdCT): stat={stat:.4f}, p={p:.4f}, n={len(common_ct)}"
+                )
+            except Exception as e:
+                wilcoxon_notes.append(f"Wilcoxon A6 vs A2 AbdCT Dice: error ({e})")
 
     # Add Wilcoxon notes to summary
     for note in wilcoxon_notes:
