@@ -190,13 +190,16 @@ def load_image_for_case(case):
     dataset = case["dataset"]
 
     # Try to find and load the actual image
-    if dataset == "BraTS" and brats_root:
-        # Parse case_id: e.g., BraTS20_Training_001_s076_tumor
-        parts = case_id.rsplit("_s", 1)
-        if len(parts) == 2:
-            vol_id = parts[0]
-            slice_part = parts[1]  # e.g., "076_tumor"
-            slice_idx = int(slice_part.split("_")[0])
+    import re
+    
+    vol_pattern, slice_idx = None, None
+    match = re.search(r'_s(\d+)_', case_id)
+    if match:
+        vol_pattern = case_id[:match.start()]
+        slice_idx = int(match.group(1))
+
+    if dataset == "BraTS" and brats_root and vol_pattern:
+        vol_id = vol_pattern
 
             # Find the T2 FLAIR volume
             import glob
@@ -230,24 +233,21 @@ def load_image_for_case(case):
                 slc = cv2.resize(slc, (256, 256))
                 return np.stack([slc, slc, slc], axis=-1)
 
-    if dataset == "AbdCT" and abdct_root:
+    if dataset == "AbdCT" and abdct_root and vol_pattern:
         import glob
-        parts = case_id.rsplit("_s", 1)
-        if len(parts) == 2:
-            vol_pattern = parts[0]
-            slice_part = parts[1]
-            slice_idx = int(slice_part.split("_")[0])
+        img_files = []
+        for root, _, files in os.walk(abdct_root):
+            for f in files:
+                if (f.endswith(".nii") or f.endswith(".nii.gz")) and vol_pattern.replace("_seg.nii.gz", "").replace("_seg.nii", "") in f and ("image" in f or "img" in f or "avg.nii" in f):
+                    img_files.append(os.path.join(root, f))
 
-            img_files = glob.glob(
-                os.path.join(abdct_root, "**", f"*{vol_pattern}*image*"),
-                recursive=True
-            ) + glob.glob(
-                os.path.join(abdct_root, "**", f"image*{vol_pattern}*"),
-                recursive=True
-            )
+        if not img_files:
+            # Fallback to glob if os.walk fails to find the exact match
+            img_files = glob.glob(os.path.join(abdct_root, "**", f"*{vol_pattern}*image*"), recursive=True) + \
+                        glob.glob(os.path.join(abdct_root, "**", f"image*{vol_pattern}*"), recursive=True)
 
-            if img_files:
-                try:
+        if img_files:
+            try:
                     import nibabel as nib
                     vol = nib.load(img_files[0]).get_fdata()
                 except ImportError:
