@@ -181,7 +181,8 @@ def train():
             
             # Forward pass
             optimizer.zero_grad()
-            loss = model(supp_imgs, supp_mask, qry_imgs, qry_labels, train=True)
+            prompt_loss, rac_loss, foreground_loss = model(supp_imgs, supp_mask, qry_imgs, qry_labels, train=True)
+            loss = prompt_loss + rac_loss + foreground_loss
             
             # Backward pass
             loss.backward()
