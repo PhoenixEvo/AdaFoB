@@ -70,12 +70,27 @@ def collect_abdct_cases(abdct_root, num_cases=10):
         label_files = sorted(glob.glob(os.path.join(abdct_root, "**", "label*.nii.gz"), recursive=True))
 
     if not label_files:
-        # Try official Synapse format: *img.nii.gz + *seg.nii.gz
-        image_files = sorted(glob.glob(os.path.join(abdct_root, "**", "*img.nii.gz"), recursive=True))
-        label_files = sorted(glob.glob(os.path.join(abdct_root, "**", "*seg.nii.gz"), recursive=True))
+        # FUSE / Kaggle compatibility: use os.walk instead of ** glob
+        image_files = []
+        label_files = []
+        for root, _, files in os.walk(abdct_root):
+            for f in files:
+                if f.endswith(".nii") or f.endswith(".nii.gz"):
+                    path = os.path.join(root, f)
+                    if "image" in f or "img" in f or "avg.nii" in f:
+                        image_files.append(path)
+                    elif "label" in f or "seg" in f:
+                        label_files.append(path)
+        image_files = sorted(image_files)
+        label_files = sorted(label_files)
 
     if not label_files:
         print(f"[WARN] No label files found in {abdct_root}. Skipping Abd-CT.")
+        # Debug: list all .nii files found in the root
+        all_nii = []
+        for root, _, files in os.walk(abdct_root):
+            all_nii.extend([f for f in files if ".nii" in f])
+        print(f"       Found .nii files overall: {len(all_nii)} (First 10: {all_nii[:10]})")
         return cases
 
     # SABS/BTCV organ labels: 6=liver, 1=spleen (commonly used in few-shot literature)
