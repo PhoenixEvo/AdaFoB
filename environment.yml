@@ -1,0 +1,27 @@
+name: adafob
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch=2.1
+  - torchvision
+  - cudatoolkit=11.8
+  - pip
+  - pip:
+    - numpy
+    - pandas
+    - scipy
+    - scikit-image
+    - opencv-python
+    - nibabel
+    - SimpleITK
+    - matplotlib
+    - pyyaml
+    - tqdm
+    - sacred
+    - json5
+    - medpy
+# NOTE: FoB's pinned stack (torch 1.10.2, numpy 1.22, scikit-image 0.18.3) is old.
+# Run FoB code in its own venv if version conflicts arise; keep AdaFoB modules
+# in this env and interface via files/subprocess if needed.

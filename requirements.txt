@@ -1,0 +1,15 @@
+numpy
+pandas
+scipy
+scikit-image
+opencv-python
+nibabel
+SimpleITK
+matplotlib
+pyyaml
+tqdm
+sacred
+json5
+medpy
+torch>=2.0
+torchvision
