@@ -201,37 +201,37 @@ def load_image_for_case(case):
     if dataset == "BraTS" and brats_root and vol_pattern:
         vol_id = vol_pattern
 
-            # Find the T2 FLAIR volume
-            import glob
-            flair_files = glob.glob(
-                os.path.join(brats_root, "**", f"{vol_id}*flair*.nii*"),
-                recursive=True
-            )
-            t2_files = glob.glob(
-                os.path.join(brats_root, "**", f"{vol_id}*t2*.nii*"),
-                recursive=True
-            )
+        # Find the T2 FLAIR volume
+        import glob
+        flair_files = glob.glob(
+            os.path.join(brats_root, "**", f"{vol_id}*flair*.nii*"),
+            recursive=True
+        )
+        t2_files = glob.glob(
+            os.path.join(brats_root, "**", f"{vol_id}*t2*.nii*"),
+            recursive=True
+        )
 
-            vol_path = None
-            if flair_files:
-                vol_path = flair_files[0]
-            elif t2_files:
-                vol_path = t2_files[0]
+        vol_path = None
+        if flair_files:
+            vol_path = flair_files[0]
+        elif t2_files:
+            vol_path = t2_files[0]
 
-            if vol_path:
-                try:
-                    import nibabel as nib
-                    vol = nib.load(vol_path).get_fdata()
-                except ImportError:
-                    import SimpleITK as sitk
-                    vol = sitk.GetArrayFromImage(sitk.ReadImage(vol_path))
+        if vol_path:
+            try:
+                import nibabel as nib
+                vol = nib.load(vol_path).get_fdata()
+            except ImportError:
+                import SimpleITK as sitk
+                vol = sitk.GetArrayFromImage(sitk.ReadImage(vol_path))
 
-                slc = vol[slice_idx]
-                # Z-score normalize, then scale to [0, 255]
-                slc = (slc - slc.mean()) / (slc.std() + 1e-8)
-                slc = np.clip(slc * 50 + 128, 0, 255).astype(np.uint8)
-                slc = cv2.resize(slc, (256, 256))
-                return np.stack([slc, slc, slc], axis=-1)
+            slc = vol[slice_idx]
+            # Z-score normalize, then scale to [0, 255]
+            slc = (slc - slc.mean()) / (slc.std() + 1e-8)
+            slc = np.clip(slc * 50 + 128, 0, 255).astype(np.uint8)
+            slc = cv2.resize(slc, (256, 256))
+            return np.stack([slc, slc, slc], axis=-1)
 
     if dataset == "AbdCT" and abdct_root and vol_pattern:
         import glob
@@ -248,17 +248,17 @@ def load_image_for_case(case):
 
         if img_files:
             try:
-                    import nibabel as nib
-                    vol = nib.load(img_files[0]).get_fdata()
-                except ImportError:
-                    import SimpleITK as sitk
-                    vol = sitk.GetArrayFromImage(sitk.ReadImage(img_files[0]))
+                import nibabel as nib
+                vol = nib.load(img_files[0]).get_fdata()
+            except ImportError:
+                import SimpleITK as sitk
+                vol = sitk.GetArrayFromImage(sitk.ReadImage(img_files[0]))
 
-                if slice_idx < vol.shape[0]:
-                    slc = vol[slice_idx]
-                    slc = np.clip(slc * 255, 0, 255).astype(np.uint8)
-                    slc = cv2.resize(slc, (256, 256))
-                    return np.stack([slc, slc, slc], axis=-1)
+            if slice_idx < vol.shape[0]:
+                slc = vol[slice_idx]
+                slc = np.clip(slc * 255, 0, 255).astype(np.uint8)
+                slc = cv2.resize(slc, (256, 256))
+                return np.stack([slc, slc, slc], axis=-1)
 
     # Fallback: generate a synthetic image from the mask
     # Use distance transform to create a textured grayscale
