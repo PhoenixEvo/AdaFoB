@@ -1,0 +1,6 @@
+# AdaFoB Main Configuration
+
+# Phase 3 Decision Scope
+# set to 'gap_only' based on Phase 2 pilot:
+# Claim A (Adaptive Np) failed, Claim B (Skeleton Prior) succeeded.
+scope: gap_only
