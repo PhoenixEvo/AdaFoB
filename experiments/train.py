@@ -185,8 +185,9 @@ def train():
             loss = prompt_loss + rac_loss + foreground_loss
             
             # Backward pass
-            loss.backward()
-            optimizer.step()
+            if loss.requires_grad:
+                loss.backward()
+                optimizer.step()
             
             epoch_loss += loss.item()
             if i % 10 == 0:
