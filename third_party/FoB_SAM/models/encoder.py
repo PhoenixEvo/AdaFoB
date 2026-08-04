@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision
+from torch.hub import load_state_dict_from_url
 
 class Res101Encoder(nn.Module):
     """
@@ -12,11 +13,11 @@ class Res101Encoder(nn.Module):
         super().__init__()
         # using pretrained model's weights
         if pretrained_weights == 'COCO':
-            self.pretrained_weights = torch.load(
-                ".../deeplabv3_resnet101_coco-586e9e4e.pth", map_location='cpu')
+            self.pretrained_weights = load_state_dict_from_url(
+                "https://download.pytorch.org/models/deeplabv3_resnet101_coco-586e9e4e.pth", map_location='cpu')
         elif pretrained_weights == 'resnet101':
-            self.pretrained_weights = torch.load(".../resnet101-63fe2227.pth",
-                                                 map_location='cpu')
+            self.pretrained_weights = load_state_dict_from_url(
+                "https://download.pytorch.org/models/resnet101-63fe2227.pth", map_location='cpu')
         else:
             self.pretrained_weights = pretrained_weights
 
