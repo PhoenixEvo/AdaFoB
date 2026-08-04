@@ -1,16 +1,9 @@
-# Pilot configuration - Phase 2 (training-free)
-seed: 42
-np_min: 4
-np_max: 24
-fixed_np_grid: [5, 10, 20]
-heuristic:
-  alpha: 1.0    # weight on log(perimeter + 1)
-  beta: 10.0    # weight on (1 - compactness)
-  gamma: 1.0    # weight on log(skeleton_length + 1)
-ring_prior:
-  dilation_r: 15   # FoB Eq.(1) default
-  eps: 2           # differential band thickness
-skeleton_prior:
-  offset_px: 8     # outward offset from boundary for negative prompts
-pilot_cases: 20
-metrics: [dice, hd95]
+experiment:
+  name: "adafob_pilot"
+  seed: 2026
+  dataset: "SABS"
+  n_shot: 1
+  n_way: 1
+  epochs: 1
+  batch_size: 1
+  learning_rate: 1e-4
