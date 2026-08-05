@@ -17,7 +17,25 @@ sys.path.append(os.path.abspath(os.path.join(_HERE, "..", "third_party", "FoB_SA
 
 from models.FoB import FewShotSeg
 import experiments.eval as EV
-from data.preprocess import sam_uint8_from_canonical
+from segment_anything import sam_model_registry, SamPredictor
+from data.preprocess import sam_uint8_from_canonical, oracle_prompts, sanitize_prompts
+
+def predict_all(predictor, pos, neg, H=256, W=256):
+    pos, _ = sanitize_prompts(pos, H, W, mode="drop")
+    neg, _ = sanitize_prompts(neg, H, W, mode="drop")
+    if len(pos) == 0 and len(neg) == 0:
+        return None, None
+    pts = np.concatenate([pos, neg], axis=0)
+    lbl = np.concatenate([np.ones(len(pos)), np.zeros(len(neg))], axis=0)
+    masks, scores, _ = predictor.predict(point_coords=pts, point_labels=lbl,
+                                         multimask_output=True)
+    return masks, scores
+
+def dice_of(predictor, pos, neg, gt, idx=0):
+    masks, _ = predict_all(predictor, pos, neg)
+    if masks is None:
+        return 0.0
+    return EV.compute_dice(masks[idx], gt)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -106,20 +124,20 @@ def main():
             neg_pts = EV._as_points(neg_p)[:, ::-1].copy() # [10, 2]
             
             # 2. Get oracle prompts (for ceiling)
-            o_pos, o_neg = EV.oracle_prompts(gt, n_pos=10, n_neg=10, rng=random.Random(args.seed))
+            o_pos, o_neg = oracle_prompts(gt, n_pos=10, n_neg=10, rng=random.Random(args.seed))
             
             # 3. Cache SAM embedding ONCE
             predictor.set_image(sam_uint8_from_canonical(qv["canon"][ep["query_slice"]]))
             
             # Oracle ceiling
-            dice_oracle = EV.dice_of(predictor, o_pos, o_neg, gt)
+            dice_oracle = dice_of(predictor, o_pos, o_neg, gt)
             oracle_dices.append(dice_oracle)
             
             # Budget sweep
             ep_dices = {}
             for Np in budgets:
                 cur_neg = neg_pts[:Np] if Np > 0 else np.zeros((0,2), dtype=np.float32)
-                d = EV.dice_of(predictor, pos_pts, cur_neg, gt)
+                d = dice_of(predictor, pos_pts, cur_neg, gt)
                 ep_dices[Np] = d
                 best_n_dices[Np].append(d)
                 
