@@ -424,8 +424,7 @@ class FewShotSeg(nn.Module):
 
             # ***************************** Dynamic Budget Allocation (PBA) *****************************
             if hasattr(self, 'allocator') and self.allocator is not None:
-                spt_fg_proto_flat = spt_fg_proto.transpose(0, 1) # [1, 512]
-                pred_point_alloc, budget_Np = self.allocator.allocate(qry_imgs, qry_pred_coarse, spt_fg_proto_flat, supp_mask, self, supp_fts[0][0])
+                pred_point_alloc, budget_Np = self.allocator.allocate(qry_imgs, qry_pred_coarse, spt_fg_proto, supp_mask, self, supp_fts[0][0])
             else:
                 pred_point_alloc = None
             
