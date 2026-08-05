@@ -70,34 +70,13 @@ from segment_anything import sam_model_registry, SamPredictor   # noqa: E402
 # helpers
 # ---------------------------------------------------------------------------
 
-def oracle_prompts(gt, n_pos=10, n_neg=10, r_outer=15, r_inner=13, erode_iters=3, rng=None):
-    """GT-derived prompts in SAM's (x, y) order (morphological core positives)."""
-    rng = rng or random.Random(0)
-    gt = (np.asarray(gt) > 0).astype(np.uint8)
-    k = np.ones((3, 3), np.uint8)
-
-    core = cv2.erode(gt, k, iterations=erode_iters)
-    if core.sum() < n_pos:
-        core = gt
-    cy, cx = np.nonzero(core)
-    if len(cy) == 0:
-        return np.zeros((0, 2), np.float32), np.zeros((0, 2), np.float32)
-    sel = rng.sample(range(len(cy)), min(n_pos, len(cy)))
-    pos = np.stack([cx[sel], cy[sel]], axis=1).astype(np.float32)
-
-    band = cv2.dilate(gt, k, iterations=r_outer) - cv2.dilate(gt, k, iterations=r_inner)
-    by, bx = np.nonzero(band)
-    neg = np.zeros((0, 2), np.float32)
-    if len(by) >= n_neg:
-        sel = rng.sample(range(len(by)), n_neg)
-        neg = np.stack([bx[sel], by[sel]], axis=1).astype(np.float32)
-    return pos, neg
+from data.preprocess import oracle_prompts, sanitize_prompts    # noqa: E402
 
 
-def predict_all(predictor, pos, neg):
+def predict_all(predictor, pos, neg, H=256, W=256):
     """Return all 3 SAM masks for the currently registered image."""
-    pos = EV._as_points(pos)
-    neg = EV._as_points(neg)
+    pos, _ = sanitize_prompts(pos, H, W, mode="drop")
+    neg, _ = sanitize_prompts(neg, H, W, mode="drop")
     if len(pos) == 0 and len(neg) == 0:
         return None, None
     pts = np.concatenate([pos, neg], axis=0)
@@ -173,7 +152,6 @@ def main():
     ap.add_argument("--data_root", type=str, default=None)
     ap.add_argument("--n_cases", type=int, default=12)
     ap.add_argument("--organs", type=str, default="1")
-    ap.add_argument("--min_pixels", type=int, default=50)
     ap.add_argument("--seed", type=int, default=2021)
     ap.add_argument("--hu_window", type=float, nargs=2, default=[-125.0, 275.0])
     ap.add_argument("--baseline_norm", choices=["dataset", "volume", "fixed"], default="dataset")
@@ -211,17 +189,17 @@ def main():
 
     def base_norm(vol):
         if b_mu is not None:
-            return lambda v, start, end: EV.norm_fob(v["canon"][start:end], b_mu, b_sd)
+            return lambda sl: EV.norm_fob(sl, b_mu, b_sd)
         mu, sd = float(vol["canon"].mean()), float(vol["canon"].std())
-        return lambda v, start, end: EV.norm_fob(v["canon"][start:end], mu, sd)
+        return lambda sl: EV.norm_fob(sl, mu, sd)
 
     def ada_norm(vol):
         if args.adafob_norm == "train_slice":
-            return lambda v, start, end: EV.norm_adafob_trainstyle(v["raw"][start:end])
+            return EV.norm_adafob_trainstyle
         if args.adafob_norm == "dataset":
-            return lambda v, start, end: EV.norm_fob(v["canon"][start:end], stats["dataset_mean"], stats["dataset_std"])
+            return lambda sl: EV.norm_fob(sl, stats["dataset_mean"], stats["dataset_std"])
         mu, sd = float(vol["canon"].mean()), float(vol["canon"].std())
-        return lambda v, start, end: EV.norm_fob(v["canon"][start:end], mu, sd)
+        return lambda sl: EV.norm_fob(sl, mu, sd)
 
     # models
     dummy = type("A", (), {})()
@@ -258,7 +236,7 @@ def main():
     cases = []
     for i in range(args.n_cases):
         cls = organs[i % len(organs)]
-        ep = EV.sample_episode(volumes, cls, min_pixels=args.min_pixels)
+        ep = EV.sample_episode(volumes, cls)
         if ep is None:
             continue
         qv = volumes[ep["query_vol"]]
@@ -407,6 +385,49 @@ def main():
             print("     a pristine upstream clone of FoB_SAM instead.")
         else:
             print("  OK - the missing layer does not affect the baseline's output.")
+
+    # ---------------- stage 5: negative-prompt headroom --------------------
+    # The earlier "+0.03 for negatives" was measured with TEN ground-truth
+    # interior positives held fixed. Ten interior points already determine the
+    # object, so negatives have nothing left to constrain -- the number was
+    # partly an artefact of the probe. Negatives matter in the AMBIGUOUS regime,
+    # which is where FoB actually operates. Sweep the positive budget and read
+    # off whether the pathway has headroom.
+    print("\n" + "=" * 72)
+    print("STAGE 5 - negative-prompt headroom vs positive budget (oracle prompts)")
+    print("=" * 72)
+    print(f"  {'n_pos':>6s} {'no negatives':>14s} {'+oracle negatives':>18s} {'gain':>8s}")
+    headroom = {}
+    for n_pos in (1, 2, 3, 5, 10):
+        wo, wi = [], []
+        for ep, gt in cases:
+            qv = volumes[ep["query_vol"]]
+            predictor.set_image(EV.sam_uint8_from_canonical(qv["canon"][ep["query_slice"]]))
+            pos, neg = oracle_prompts(gt, n_pos=n_pos, n_neg=args.n_neg,
+                                      rng=random.Random(args.seed))
+            if len(pos) == 0:
+                continue
+            wo.append(dice_of(predictor, pos, np.zeros((0, 2), np.float32), gt))
+            wi.append(dice_of(predictor, pos, neg, gt))
+        if wo:
+            g = float(np.mean(wi) - np.mean(wo))
+            headroom[n_pos] = {"without": float(np.mean(wo)),
+                               "with": float(np.mean(wi)), "gain": g}
+            print(f"  {n_pos:6d} {np.mean(wo):14.4f} {np.mean(wi):18.4f} {g:+8.4f}")
+    report["negative_headroom"] = headroom
+    if headroom:
+        g1 = headroom.get(1, {}).get("gain", 0.0)
+        g10 = headroom.get(10, {}).get("gain", 0.0)
+        print(f"\n  gain at 1 positive : {g1:+.4f}")
+        print(f"  gain at 10 positives: {g10:+.4f}")
+        if g1 < 0.05:
+            print("  !! Negatives barely help even with a SINGLE positive prompt. The")
+            print("     background pathway has no headroom on this data, so GAP cannot")
+            print("     demonstrate anything here. This is a Phase 3 kill-criterion")
+            print("     result, not a Phase 5 one -- reconsider the benchmark or the claim.")
+        else:
+            print("  OK - negatives carry real signal in the ambiguous regime, which is")
+            print("  the regime FoB targets. GAP has room to improve on it.")
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out_json)), exist_ok=True)
     with open(args.out_json, "w") as f:

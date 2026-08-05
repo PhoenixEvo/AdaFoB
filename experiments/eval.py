@@ -71,7 +71,9 @@ from scipy.spatial.distance import cdist
 from scipy.stats import wilcoxon
 
 # Add FoB_SAM to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "third_party", "FoB_SAM")))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, _ROOT)
+sys.path.append(os.path.join(_ROOT, "third_party", "FoB_SAM"))
 from models.FoB import FewShotSeg
 from segment_anything import sam_model_registry, SamPredictor
 
@@ -123,87 +125,25 @@ def compute_hd95(pred, gt, empty_value=256.0, max_points=4000):
 
 
 # ---------------------------------------------------------------------------
-# Intensity handling
+# Preprocessing comes from data/preprocess.py -- single source of truth, so
+# train.py and eval.py can no longer drift on what an input image is.
+# The old names are kept as aliases (diagnose.py imports them from here).
 # ---------------------------------------------------------------------------
 
-def to_canonical(vol, hu_window=(-125.0, 275.0)):
-    """Map an arbitrary CT volume into the canonical [0, 255] domain.
+from data.preprocess import (                                    # noqa: E402
+    to_canonical, resize_volume, sam_uint8_from_canonical,
+    norm_zscore, norm_unit_legacy, oracle_prompts,
+    sanitize_prompts, detect_alignment, apply_label_transform,
+)
 
-    Mirrors Ouyang et al.'s SABS preprocessing, which is what the FoB
-    checkpoints were trained on.  Returns (volume, detected_domain).
-    """
-    vol = vol.astype(np.float64)
-    vmin, vmax = float(vol.min()), float(vol.max())
-
-    if vmin < -20.0:                       # raw Hounsfield units
-        lo, hi = float(hu_window[0]), float(hu_window[1])
-        vol = np.clip(vol, lo, hi)
-        vol = (vol - lo) / (hi - lo) * 255.0
-        domain = "raw_hu"
-    elif vmax <= 1.5:                      # already scaled to [0, 1]
-        vol = vol * 255.0
-        domain = "unit"
-    elif vmax <= 260.0:                    # already scaled to [0, 255]
-        domain = "byte"
-    else:                                  # unknown positive range
-        lo, hi = np.percentile(vol, [0.5, 99.5])
-        vol = np.clip(vol, lo, hi)
-        vol = (vol - lo) / (hi - lo + 1e-8) * 255.0
-        domain = "percentile"
-
-    return vol.astype(np.float32), domain
-
-
-def norm_fob(vol_canon, mean, std):
-    """Baseline FoB input: z-score of the canonical volume -> (Z, 3, H, W)."""
-    img = (vol_canon.astype(np.float64) - mean) / (std + 1e-8)
-    return np.stack(3 * [img], axis=1).astype(np.float32)
-
-
-def norm_adafob_trainstyle(vol_canon):
-    """AdaFoB input: replicates experiments/train.py `_load_slice` exactly.
-
-        per-slice z-score -> clip(z * 50 + 128, 0, 255) -> /255  ->  [0, 1]
-    """
-    z_dim = vol_canon.shape[0]
-    out = np.empty((z_dim, 3) + vol_canon.shape[1:], dtype=np.float32)
-    for z in range(z_dim):
-        s = vol_canon[z].astype(np.float64)
-        s = (s - s.mean()) / (s.std() + 1e-8)
-        s = np.clip(s * 50.0 + 128.0, 0, 255).astype(np.uint8)
-        s = s.astype(np.float32) / 255.0
-        out[z] = np.stack(3 * [s], axis=0)
-    return out
-
-
-def sam_uint8_from_canonical(slice_canon):
-    """(H, W) canonical float -> (H, W, 3) uint8 for SAM.
-
-    Same min-max as FoB's SAM.pre_process, but applied to a *windowed* slice so
-    soft-tissue contrast survives.
-    """
-    s = slice_canon.astype(np.float32)
-    lo, hi = float(s.min()), float(s.max())
-    if hi - lo < 1e-8:
-        u8 = np.zeros_like(s, dtype=np.uint8)
-    else:
-        u8 = ((s - lo) / (hi - lo) * 255.0).astype(np.uint8)
-    return np.stack(3 * [u8], axis=-1)
+norm_fob = norm_zscore                       # (slices, mean, std) -> (Z,3,H,W)
+norm_adafob_trainstyle = norm_unit_legacy    # legacy [0,1] pipeline
+_resize_volume = resize_volume
 
 
 # ---------------------------------------------------------------------------
 # Volume loading
 # ---------------------------------------------------------------------------
-
-def _resize_volume(vol, size=(256, 256), is_label=False):
-    if vol.shape[1:] == (size[1], size[0]):
-        return vol
-    out = np.zeros((vol.shape[0], size[1], size[0]), dtype=vol.dtype)
-    interp = cv2.INTER_NEAREST if is_label else cv2.INTER_LINEAR
-    for z in range(vol.shape[0]):
-        out[z] = cv2.resize(vol[z], size, interpolation=interp)
-    return out
-
 
 def _collect_pairs(data_root):
     """Return list of (image_path, label_path)."""
@@ -221,23 +161,13 @@ def _collect_pairs(data_root):
         return pairs
 
     img_dict, lbl_dict = {}, {}
-    for root, dirs, files in os.walk(data_root, followlinks=True):
-        # Kaggle might extract img0001.nii.gz into a folder img0001.nii/ containing a tmp-*.nii file
-        # We need to look at both files and directories that look like .nii
-        for entry in sorted(files + dirs):
-            if not (entry.endswith(".nii") or entry.endswith(".nii.gz")):
+    for root, _, files in os.walk(data_root):
+        for f in sorted(files):
+            if not (f.endswith(".nii") or f.endswith(".nii.gz")):
                 continue
-            
-            path = os.path.join(root, entry)
-            # If Kaggle made it a directory, find the actual file inside
-            if os.path.isdir(path):
-                inner_files = [f for f in os.listdir(path) if (f.endswith(".nii") or f.endswith(".nii.gz")) and os.path.isfile(os.path.join(path, f))]
-                if not inner_files:
-                    continue
-                path = os.path.join(path, inner_files[0])
-                
-            fl = entry.lower()
-            match = re.search(r"(\d+)", entry)
+            path = os.path.join(root, f)
+            fl = f.lower()
+            match = re.search(r"(\d+)", f)
             if not match:
                 continue
             pid = match.group(1)
@@ -290,8 +220,7 @@ def load_volumes(data_root, hu_window=(-125.0, 275.0), limit=None):
         total_n += canon.size
 
         volumes.append({
-            "raw": img,
-            "canon": canon.astype(np.float32),
+            "canon": canon,
             "label": lbl,
             "path": ip,
             "raw_range": (raw_min, raw_max),
@@ -383,13 +312,13 @@ def build_inputs(volumes, ep, norm_fn):
 
     supp_imgs, supp_masks = [], []
     for s in ep["support_slices"]:
-        img3 = norm_fn(sv, s, s + 1)                               # (1, 3, H, W)
+        img3 = norm_fn(sv["canon"][s:s + 1])                       # (1, 3, H, W)
         supp_imgs.append(torch.from_numpy(img3).float())
         m = (sv["label"][s] == cls).astype(np.float32)
         supp_masks.append(torch.from_numpy(m).unsqueeze(0).float())
 
     q = ep["query_slice"]
-    qry_img3 = norm_fn(qv, q, q + 1)                               # (1, 3, H, W)
+    qry_img3 = norm_fn(qv["canon"][q:q + 1])                       # (1, 3, H, W)
     qry_tensor = torch.from_numpy(qry_img3).float()
     qry_mask_np = (qv["label"][q] == cls).astype(np.int64)
     qry_label = torch.from_numpy(qry_mask_np).unsqueeze(0).long()
@@ -474,12 +403,23 @@ def _as_points(p):
     return p.reshape(-1, 2)
 
 
-def predict_sam_from_points(predictor, pos_pts, neg_pts):
-    """Predict with an image already registered via predictor.set_image()."""
-    pos = _as_points(pos_pts)
-    neg = _as_points(neg_pts)
+def predict_sam_from_points(predictor, pos_pts, neg_pts, H=256, W=256,
+                            mask_select="fixed0", oob_mode="drop", verbose=False):
+    """Predict with an image already registered via predictor.set_image().
+
+    Prompts are sanitised first.  Diagnostics showed the AdaFoB head emitting 85
+    of 120 background points outside the image; SAM silently rescales whatever it
+    receives, so those became meaningless constraints rather than an error.
+
+    mask_select='fixed0'      FoB parity (SAM.py hardcodes index 0)
+    mask_select='best_score'  SAM's own predicted-IoU argmax (report separately;
+                              do NOT mix with fixed0 in one table)
+    """
+    pos, ps = sanitize_prompts(pos_pts, H, W, mode=oob_mode, name="pos", verbose=verbose)
+    neg, ns = sanitize_prompts(neg_pts, H, W, mode=oob_mode, name="neg", verbose=verbose)
     if len(pos) == 0 and len(neg) == 0:
-        return None
+        return None, {"pos": ps, "neg": ns, "mask_idx": None}
+
     all_pts = np.concatenate([pos, neg], axis=0)
     all_lbls = np.concatenate([np.ones(len(pos)), np.zeros(len(neg))], axis=0)
 
@@ -488,14 +428,16 @@ def predict_sam_from_points(predictor, pos_pts, neg_pts):
         point_labels=all_lbls,
         multimask_output=True,
     )
-    return masks[0]      # best_pred_idx = 0 for non-ISIC (FoB SAM.py)
+    idx = 0 if mask_select == "fixed0" else int(np.argmax(scores))
+    return masks[idx], {"pos": ps, "neg": ns, "mask_idx": idx}
 
 
 # ---------------------------------------------------------------------------
 # Sanity check: is the image pipeline itself usable?
 # ---------------------------------------------------------------------------
 
-def gt_prompt_sanity_check(predictor, volumes, organs, organ_map, n_cases=8, n_neg=10, seed=0):
+def gt_prompt_sanity_check(predictor, volumes, organs, organ_map, n_cases=8,
+                           n_neg=10, seed=0, mask_select="fixed0", n_pos=10):
     """Feed SAM ground-truth-derived prompts (centroid + FoB-style ring band).
 
     This removes both networks from the loop.  If Dice here is low, the fault is
@@ -517,33 +459,12 @@ def gt_prompt_sanity_check(predictor, volumes, organs, organ_map, n_cases=8, n_n
         if gt.sum() < 20:
             continue
 
-        ys, xs = np.nonzero(gt)
-        # Spleen is often crescent-shaped. Mean (centroid) can fall outside the mask!
-        # Use morphological center (furthest point from background) instead.
-        dist = cv2.distanceTransform(gt, cv2.DIST_L2, 5)
-        my, mx = np.unravel_index(np.argmax(dist), dist.shape)
-        
-        # SAM performs much better with multiple positive points (like FoB's 10 points)
-        erode_k = np.ones((3, 3), np.uint8)
-        core = cv2.erode(gt, erode_k, iterations=3)
-        cy, cx = np.nonzero(core)
-        if len(cy) >= 10:
-            sel_pos = rng.sample(range(len(cy)), 10)
-            pos = np.stack([cx[sel_pos], cy[sel_pos]], axis=1).astype(np.float32)
-        else:
-            pos = np.array([[mx, my]], dtype=np.float32)   # (x, y) fallback
-
-        k = np.ones((3, 3), np.uint8)
-        band = cv2.dilate(gt, k, iterations=15) - cv2.dilate(gt, k, iterations=13)
-        by, bx = np.nonzero(band)
-        if len(by) >= n_neg:
-            sel = rng.sample(range(len(by)), n_neg)
-            neg = np.stack([bx[sel], by[sel]], axis=1).astype(np.float32)
-        else:
-            neg = np.zeros((0, 2), dtype=np.float32)
+        pos, neg = oracle_prompts(gt, n_pos=n_pos, n_neg=n_neg,
+                                 rng=random.Random(seed))
 
         predictor.set_image(sam_uint8_from_canonical(qv["canon"][q]))
-        pred = predict_sam_from_points(predictor, pos, neg)
+        pred, _ = predict_sam_from_points(predictor, pos, neg, *gt.shape,
+                                          mask_select=mask_select)
         d = compute_dice(pred, gt) if pred is not None else 0.0
         dices.append(d)
         print(f"  case {i} ({organ_map[cls]:>8s}): Dice={d:.4f}  "
@@ -597,6 +518,22 @@ def evaluate():
     parser.add_argument("--strict_ckpt", action="store_true",
                         help="abort if a checkpoint fails to load most parameters")
     parser.add_argument("--out_csv", type=str, default="results/phase4_validation.csv")
+
+    # --- pipeline validity and prompt handling --------------------------------
+    parser.add_argument("--auto_align", type=int, default=1,
+                        help="detect the label transform that makes labels agree with "
+                             "the images (edge-z) and apply it. 0 disables.")
+    parser.add_argument("--force_transform", type=str, default=None,
+                        help="skip detection and force one of data.preprocess.TRANSFORMS")
+    parser.add_argument("--force_z_shift", type=int, default=0)
+    parser.add_argument("--require_oracle", type=float, default=0.85,
+                        help="abort unless the oracle-prompt control reaches this Dice. "
+                             "Below it, a FoB-vs-AdaFoB comparison is not interpretable.")
+    parser.add_argument("--force", action="store_true",
+                        help="run even if the oracle gate fails (results are NOT publishable)")
+    parser.add_argument("--mask_select", choices=["fixed0", "best_score"], default="fixed0",
+                        help="fixed0 = FoB parity; best_score = SAM predicted-IoU argmax")
+    parser.add_argument("--oob_mode", choices=["drop", "clip"], default="drop")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -638,6 +575,31 @@ def evaluate():
     # --- load volumes ---------------------------------------------------------
     volumes, stats = load_volumes(data_root, tuple(args.hu_window), args.limit_volumes)
 
+    # --- image/label alignment ------------------------------------------------
+    # Measured, not configured. A hard-coded flip is a guess that silently
+    # corrupts every downstream number when it is wrong, so the transform is
+    # chosen by the edge-z criterion and the decision is logged.
+    align = {"transform": "identity", "z_shift": 0, "confident": True, "scores": {}}
+    probe_organ = int(args.organs.split(",")[0])
+    if args.force_transform:
+        align = {"transform": args.force_transform, "z_shift": args.force_z_shift,
+                 "confident": True, "scores": {}, "reason": "forced by flag"}
+        print(f"\nAlignment FORCED: {align['transform']} z_shift={align['z_shift']:+d}")
+    elif args.auto_align:
+        print("\nDetecting image/label alignment...")
+        align = detect_alignment(volumes, probe_organ, min_pixels=args.min_pixels)
+    if align["transform"] != "identity" or align["z_shift"]:
+        for v in volumes:
+            v["label"] = apply_label_transform(v["label"], align["transform"],
+                                               align["z_shift"])
+        print(f"  applied: transform={align['transform']} z_shift={align['z_shift']:+d}")
+    else:
+        print("  labels used as stored (identity)")
+    if not align.get("confident", True):
+        print("  !! low-confidence alignment: no transform makes the labels follow an")
+        print("     image boundary. Suspect image/label PAIRING or averaged/template")
+        print("     images rather than orientation. The oracle gate below will catch it.")
+
     # --- resolve normalisers --------------------------------------------------
     if args.baseline_norm == "dataset":
         b_mean, b_std = stats["dataset_mean"], stats["dataset_std"]
@@ -648,20 +610,19 @@ def evaluate():
 
     def make_baseline_norm(vol):
         if b_mean is not None:
-            return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], b_mean, b_std)
+            return lambda sl: norm_fob(sl, b_mean, b_std)
         mu = float(vol["canon"].mean())
         sd = float(vol["canon"].std())
-        return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], mu, sd)
+        return lambda sl: norm_fob(sl, mu, sd)
 
     def make_adafob_norm(vol):
         if args.adafob_norm == "train_slice":
-            # train.py ran _load_slice on the raw dataset volume, NOT the canon one!
-            return lambda v, s_start, s_end: norm_adafob_trainstyle(v["raw"][s_start:s_end])
+            return norm_adafob_trainstyle
         if args.adafob_norm == "dataset":
-            return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], stats["dataset_mean"], stats["dataset_std"])
+            return lambda sl: norm_fob(sl, stats["dataset_mean"], stats["dataset_std"])
         mu = float(vol["canon"].mean())
         sd = float(vol["canon"].std())
-        return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], mu, sd)
+        return lambda sl: norm_fob(sl, mu, sd)
 
     print(f"\nBaseline FoB normalisation: {args.baseline_norm}"
           + (f" (mean={b_mean:.3f}, std={b_std:.3f})" if b_mean is not None else " (per-volume)"))
@@ -680,9 +641,31 @@ def evaluate():
     if not organs:
         raise ValueError("No requested organ has enough annotated slices.")
 
-    # --- sanity check ---------------------------------------------------------
-    if args.sanity_check:
-        gt_prompt_sanity_check(predictor, volumes, organs, organ_map, seed=args.seed)
+    # --- pipeline-validity gate ----------------------------------------------
+    # Runs unconditionally: an unvalidated pipeline can make both models fail
+    # together, producing a comparison that is internally consistent and
+    # meaningless. ~8 SAM calls, so the cost is negligible.
+    oracle_dices = gt_prompt_sanity_check(predictor, volumes, organs, organ_map,
+                                          seed=args.seed, mask_select=args.mask_select)
+    oracle_mean = float(np.mean(oracle_dices)) if oracle_dices else 0.0
+    if oracle_mean < args.require_oracle:
+        msg = (f"ORACLE GATE FAILED: {oracle_mean:.4f} < {args.require_oracle:.2f}. "
+               f"SAM cannot recover the ground truth even from ground-truth prompts, "
+               f"so any FoB-vs-AdaFoB number produced now is uninterpretable.")
+        print("\n" + "=" * 60)
+        print(msg)
+        print("Next steps, in order:")
+        print("  1) python experiments/check_alignment.py --data_root <root> --organ 1 --with_sam")
+        print("  2) inspect the area table: --min_pixels 50 admits ~0.08%-of-frame slivers;")
+        print("     try --min_pixels 300")
+        print("  3) verify image/label PAIRING by eye (the filename regex takes the FIRST")
+        print("     number in the name) and confirm the images are per-patient scans")
+        print("  4) confirm label id 1 really is the spleen in this distribution")
+        print("Override with --force only for debugging; such numbers are not publishable.")
+        print("=" * 60)
+        if not args.force:
+            raise SystemExit(2)
+        print("--force given: continuing with an INVALID pipeline.\n")
 
     # --- models ---------------------------------------------------------------
     dummy = type("A", (), {})()
@@ -703,6 +686,7 @@ def evaluate():
     # --- run ------------------------------------------------------------------
     results = []
     skipped = 0
+    prompt_oob = {"ada": 0, "base": 0}
     for ep_i in range(args.n_episodes):
         cls = organs[ep_i % len(organs)]
         ep = sample_episode(volumes, cls, args.min_pixels)
@@ -740,8 +724,13 @@ def evaluate():
         gt = base_sample["query_mask_np"]
         predictor.set_image(sam_uint8_from_canonical(qv["canon"][ep["query_slice"]]))
 
-        ada_pred = predict_sam_from_points(predictor, ada_pos, ada_neg)
-        base_pred = predict_sam_from_points(predictor, base_pos, base_neg)
+        H, W = gt.shape
+        ada_pred, ada_st = predict_sam_from_points(
+            predictor, ada_pos, ada_neg, H, W, mask_select=args.mask_select)
+        base_pred, base_st = predict_sam_from_points(
+            predictor, base_pos, base_neg, H, W, mask_select=args.mask_select)
+        prompt_oob["ada"] += ada_st["neg"]["n_oob"] + ada_st["pos"]["n_oob"]
+        prompt_oob["base"] += base_st["neg"]["n_oob"] + base_st["pos"]["n_oob"]
         if ada_pred is None or base_pred is None:
             skipped += 1
             continue
@@ -774,6 +763,8 @@ def evaluate():
             w.writerow(r)
     print(f"\nCSV written to: {csv_path}")
     print(f"Completed {len(results)} episodes ({skipped} skipped)")
+    print(f"Out-of-bounds prompts discarded: AdaFoB={prompt_oob['ada']} "
+          f"FoB={prompt_oob['base']}  (0 expected once the heads are trained)")
 
     # run configuration, so a CSV is never ambiguous later
     meta = {
@@ -781,6 +772,10 @@ def evaluate():
         "adafob_norm": args.adafob_norm, "dataset_mean": stats["dataset_mean"],
         "dataset_std": stats["dataset_std"], "domains": stats["domains"],
         "n_volumes": len(volumes), "organs": organs, "seed": args.seed,
+        "alignment": {k: align.get(k) for k in ("transform", "z_shift", "confident", "scores")},
+        "oracle_dice": oracle_mean, "require_oracle": args.require_oracle,
+        "mask_select": args.mask_select, "oob_mode": args.oob_mode,
+        "prompt_oob_discarded": prompt_oob,
     }
     with open(csv_path.replace(".csv", "_meta.json"), "w") as f:
         json.dump(meta, f, indent=2)

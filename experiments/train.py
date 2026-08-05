@@ -42,7 +42,10 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(_HERE, "..")))
 sys.path.append(os.path.abspath(os.path.join(_HERE, "..", "third_party", "FoB_SAM")))
 
-from data.preprocess import to_canonical, resize_volume, norm_zscore, norm_unit_legacy  # noqa: E402
+from data.preprocess import (                                                   # noqa: E402
+    to_canonical, resize_volume, norm_zscore, norm_unit_legacy,
+    detect_alignment, apply_label_transform,
+)
 from models.FoB import FewShotSeg                                                        # noqa: E402
 
 
@@ -212,6 +215,12 @@ def train():
                          "the old [0,1] pipeline and is incompatible with --init_from")
     ap.add_argument("--hu_window", type=float, nargs=2, default=[-125.0, 275.0])
     ap.add_argument("--seed", type=int, default=2021)
+    ap.add_argument("--auto_align", type=int, default=1,
+                    help="detect and apply the label transform that makes labels agree "
+                         "with images (edge-z). MUST match eval.py or train and test "
+                         "will disagree on geometry.")
+    ap.add_argument("--force_transform", type=str, default=None)
+    ap.add_argument("--force_z_shift", type=int, default=0)
     args = ap.parse_args()
 
     with open(args.config) as f:
@@ -234,6 +243,29 @@ def train():
     print(f"Data root: {root}")
 
     vols, ds_mean, ds_std = load_volumes(vols_root := root, tuple(args.hu_window))
+
+    # Image/label alignment -- identical policy to eval.py. Training against
+    # misaligned labels teaches the prompt head to fit masks that do not match
+    # the images, which no amount of fine-tuning recovers.
+    align = {"transform": "identity", "z_shift": 0, "confident": True}
+    if args.force_transform:
+        align = {"transform": args.force_transform, "z_shift": args.force_z_shift,
+                 "confident": True}
+        print(f"Alignment FORCED: {align['transform']} z_shift={align['z_shift']:+d}")
+    elif args.auto_align:
+        print("Detecting image/label alignment...")
+        align = detect_alignment(vols, 1)
+    if align["transform"] != "identity" or align["z_shift"]:
+        for v in vols:
+            v["label"] = apply_label_transform(v["label"], align["transform"],
+                                               align["z_shift"])
+        print(f"  applied: {align['transform']} z_shift={align['z_shift']:+d}")
+    if not align.get("confident", True):
+        raise SystemExit(
+            "Alignment is not trustworthy: no transform makes the labels follow an "
+            "image boundary. Fix the data (pairing / per-patient images) before "
+            "spending GPU hours. Run experiments/check_alignment.py for detail.")
+
     print("Organ availability:")
     organs = usable_organs(vols)
     if not organs:
@@ -347,7 +379,8 @@ def train():
                 json.dump({"log": log, "dataset_mean": ds_mean, "dataset_std": ds_std,
                            "norm": args.norm, "init_from": init_path,
                            "freeze_encoder": bool(args.freeze_encoder),
-                           "total_iters": total_iters, "organs": organs}, f, indent=2)
+                           "total_iters": total_iters, "organs": organs,
+                           "alignment": align}, f, indent=2)
             print(f"  saved {args.out} @ iter {it+1}")
 
     print(f"\nDone in {(time.time()-t0)/60:.1f} min ({skipped} episodes skipped)")
