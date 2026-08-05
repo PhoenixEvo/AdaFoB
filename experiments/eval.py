@@ -161,11 +161,23 @@ def _collect_pairs(data_root):
         return pairs
 
     img_dict, lbl_dict = {}, {}
-    for root, _, files in os.walk(data_root):
-        for f in sorted(files):
+    for root, dirs, files in os.walk(data_root):
+        for f in sorted(dirs + files):
             if not (f.endswith(".nii") or f.endswith(".nii.gz")):
                 continue
             path = os.path.join(root, f)
+            
+            # Handle Kaggle unzipping .nii into folders
+            if os.path.isdir(path):
+                inner_files = [cf for cf in os.listdir(path) if not cf.startswith('.')]
+                if not inner_files:
+                    continue
+                path = os.path.join(path, inner_files[0])
+            
+            # Skip 0-byte corrupted files
+            if os.path.getsize(path) == 0:
+                continue
+
             fl = f.lower()
             match = re.search(r"(\d+)", f)
             if not match:
