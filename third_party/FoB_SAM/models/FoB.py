@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .encoder import Res101Encoder
+from .allocator import PromptBudgetAllocator
 import sys
 import cv2
 import numpy as np
@@ -68,11 +69,14 @@ class SPG(nn.Module):
 
     def build_ring_adj(self, K, B, device, valid_mask=None):
         A = torch.zeros(K, K, device=device)
-        for i in range(K):
-            if valid_mask is not None and not valid_mask[i]:
-                continue
-            A[i, (i - 1) % K] = 1
-            A[i, (i + 1) % K] = 1
+        num_valid = K
+        if valid_mask is not None:
+            num_valid = valid_mask.sum().item()
+            
+        for i in range(num_valid):
+            A[i, (i - 1) % num_valid] = 1
+            A[i, (i + 1) % num_valid] = 1
+            
         A = A.unsqueeze(0).expand(B, -1, -1)
         return A
 
@@ -89,9 +93,9 @@ class SPG(nn.Module):
         alpha = torch.clamp(self.alpha, 0, 1) if self.use_learnable_alpha else 0.5
         A = alpha * A_dyn + (1 - alpha) * A_top
         
-        # Mask the aggregated adjacency matrix too
         if valid_mask is not None:
             A = A.masked_fill(~valid_mask.unsqueeze(0).unsqueeze(1), 0.0)
+            A = A.masked_fill(~valid_mask.unsqueeze(0).unsqueeze(2), 0.0) # Mask rows too
             
         A_sum = A.sum(dim=-1, keepdim=True)
         A_sum[A_sum == 0] = 1.0 # avoid division by zero
@@ -321,9 +325,9 @@ class FewShotSeg(nn.Module):
         self.refine = SPR(self.feature_dim, num_heads=1, num_points=8) 
         self.InfoNCE = InfoNCE(negative_mode='unpaired')
 
-        # GO-NARROW: AdaFoB GAP module replaces fixed ring topology
         from .skeleton_graph_prior import GAPGenerator
         self.gap_generator = GAPGenerator(np_count=self.max_points, k_neighbors=2)
+        self.allocator = PromptBudgetAllocator(max_points=self.max_points)
 
     def load_state_dict(self, state_dict, strict=True):
         # Zero-pad N_p-dependent weights from 10 to max_points (24) to maintain baseline parity
@@ -372,6 +376,11 @@ class FewShotSeg(nn.Module):
         self.n_ways = len(supp_imgs)
         self.n_shots = len(supp_imgs[0])
         self.n_queries = len(qry_imgs)
+        self.device = supp_imgs[0][0].device
+        
+        # Dynamically update the GAP generator budget
+        if hasattr(self, 'gap_generator'):
+            self.gap_generator.np_count = budget_Np
         assert self.n_ways == 1  # for now only one-way, because not every shot has multiple sub-images
         assert self.n_queries == 1
 
@@ -409,10 +418,42 @@ class FewShotSeg(nn.Module):
         L2_loss = torch.zeros(1).to(self.device)
         if supp_mask[[0], 0, 0].max() > 0. and qry_labels.max() > 0.:
 
+            # ***************************** Foreground-centric Context Modeling *****************************
+            spt_fts_ = [[self.getFeatures(supp_fts[[[0], way, shot]], supp_mask[[0], way, shot])
+                            for shot in range(self.n_shots)] for way in range(self.n_ways)]
+            spt_fg_proto = self.getPrototype(spt_fts_)[0] # [512, 1]
+
+            # obtain coarse mask of query *******************
+            qry_pred = torch.stack(
+                [self.getPred(qry_fts[way], spt_fg_proto[way], self.thresh_pred[way])
+                    for way in range(self.n_ways)], dim=1)  # N x Wa x H' x W'
+            qry_pred_coarse = F.interpolate(qry_pred, size=(img_size), mode='bilinear',
+                                            align_corners=True)  # [B, 1, 256, 256]
+
+            # ***************************** Image-level FG/BG Prediction ********************************
+            qry_pred_coarse, sim_heat = self.generate_prior(qry_fts, spt_fts_, img_size) # [B, 1, 256, 256]
+            
+            # ***************************** Dynamic Budget Allocation (PBA) *****************************
+            if hasattr(self, 'allocator') and self.allocator is not None:
+                spt_fg_proto_flat = spt_fg_proto.transpose(0, 1) # [1, 512]
+                pred_point, budget_Np = self.allocator.allocate(qry_imgs, qry_pred_coarse, spt_fg_proto_flat, supp_mask, self, supp_fts[0][0])
+            else:
+                pred_point = self.uniform_sample_from_prob(1 - qry_pred_coarse[0][0], num_samples=budget_Np, threshold=0.96)
+                
+            # Dynamically update the GAP generator budget
+            if hasattr(self, 'gap_generator'):
+                self.gap_generator.np_count = budget_Np
+
             # ***************************** Background Prompt Prototype Construction ********************************
             if use_skeleton:
                 points_spt, A_spt = self.gap_generator.generate(supp_mask[0].squeeze().cpu().numpy())
-                A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, K, K]
+                A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, budget_Np, budget_Np]
+                
+                # Pad A_spt to max_points
+                if A_spt is not None and budget_Np > 0:
+                    padded_A_spt = torch.zeros((1, self.max_points, self.max_points)).to(self.device)
+                    padded_A_spt[0, :budget_Np, :budget_Np] = A_spt[0]
+                    A_spt = padded_A_spt
             else:
                 points_spt = self.uniform_sample_contour(supp_mask[0], num_keypoints=budget_Np)
                 A_spt = None
@@ -442,15 +483,7 @@ class FewShotSeg(nn.Module):
                 valid_mask[:budget_Np] = True
 
             # ***************************** Background-centric Context Modeling *****************************
-            spt_fts_ = [[self.getFeatures(supp_fts[[[0], way, shot]], supp_mask[[0], way, shot])
-                            for shot in range(self.n_shots)] for way in range(self.n_ways)]
-            spt_fg_proto = self.getPrototype(spt_fts_)[0] # [1, 512]
-
-            # obtain coarse mask of query *******************
-            qry_pred = torch.stack(
-                [self.getPred(qry_fts[way], spt_fg_proto[way], self.thresh_pred[way])
-                    for way in range(self.n_ways)], dim=1)  # N x Wa x H' x W'
-            qry_pred_coarse = F.interpolate(qry_pred, size=img_size, mode='bilinear', align_corners=True)
+            attended_query_fts = self.masked_attention(skps, qry_fts[0].unsqueeze(0))
 
             qry_fts_suppressed = self.attention_suppress(qry_fts[0], spt_fg_proto)
 
