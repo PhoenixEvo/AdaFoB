@@ -62,9 +62,8 @@ class EvalAbdCTEpisodeDataset(Dataset):
             slc_fob = cv2.resize(slc_norm, (256, 256))
             slc_fob = np.stack([slc_fob, slc_fob, slc_fob], axis=0).astype(np.float32)
             
-            slc_uint8 = np.clip(slc_norm * 50 + 128, 0, 255).astype(np.uint8)
-            slc_sam = cv2.resize(slc_uint8, (256, 256))
-            slc_sam = np.stack([slc_sam, slc_sam, slc_sam], axis=0)
+            # FoB SAM.py does min-max normalization on the FoB image for SAM
+            slc_sam = ((slc_fob - slc_fob.min()) / (slc_fob.max() - slc_fob.min()) * 255).astype(np.uint8)
             return slc_fob, slc_sam
         else:
             slc = cv2.resize(slc, (256, 256), interpolation=cv2.INTER_NEAREST)
@@ -235,7 +234,7 @@ def evaluate():
         ada_pts = np.concatenate([ada_pos, ada_neg], axis=0)
         ada_lbls = np.concatenate([np.ones(len(ada_pos)), np.zeros(len(ada_neg))], axis=0)
         ada_masks, ada_scores, _ = predictor.predict(point_coords=ada_pts, point_labels=ada_lbls, multimask_output=True)
-        ada_pred = ada_masks[np.argmax(ada_scores)]
+        ada_pred = ada_masks[0] # FoB hardcodes best_pred_idx = 0
         
         ada_dice = compute_dice(ada_pred, gt_mask)
         ada_hd95 = compute_hd95(ada_pred, gt_mask)
@@ -245,7 +244,7 @@ def evaluate():
         base_pts = np.concatenate([base_pos, base_neg], axis=0)
         base_lbls = np.concatenate([np.ones(len(base_pos)), np.zeros(len(base_neg))], axis=0)
         base_masks, base_scores, _ = predictor.predict(point_coords=base_pts, point_labels=base_lbls, multimask_output=True)
-        base_pred = base_masks[np.argmax(base_scores)]
+        base_pred = base_masks[0] # FoB hardcodes best_pred_idx = 0
         
         base_dice = compute_dice(base_pred, gt_mask)
         base_hd95 = compute_hd95(base_pred, gt_mask)
