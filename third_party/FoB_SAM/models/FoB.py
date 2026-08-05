@@ -466,7 +466,7 @@ class FewShotSeg(nn.Module):
             qkps = padded_qkps
             
             # Pad pred_point to max_points for SPR
-            padded_pred = np.zeros((self.max_points, 2))
+            padded_pred = np.zeros((self.max_points, 2), dtype=np.float32)
             if budget_Np > 0:
                 padded_pred[:budget_Np] = pred_point[:budget_Np]
             pred_point_padded = padded_pred
@@ -489,7 +489,7 @@ class FewShotSeg(nn.Module):
                     gt_points = self.uniform_sample_contour(qry_labels.unsqueeze(0).float(), num_keypoints=budget_Np)
                     
                 # Pad gt to max_points
-                gt = np.zeros((self.max_points, 2))
+                gt = np.zeros((self.max_points, 2), dtype=np.float32)
                 if budget_Np > 0:
                     gt[:budget_Np] = gt_points[:budget_Np]
                 
