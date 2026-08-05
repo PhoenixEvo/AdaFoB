@@ -73,13 +73,24 @@ def collect_abdct_cases(abdct_root, num_cases=10):
         # FUSE / Kaggle compatibility: use os.walk instead of ** glob
         image_files = []
         label_files = []
-        for root, _, files in os.walk(abdct_root):
-            for f in files:
-                if f.endswith(".nii") or f.endswith(".nii.gz"):
-                    path = os.path.join(root, f)
-                    if "image" in f or "img" in f or "avg.nii" in f:
+        for root, dirs, files in os.walk(abdct_root, followlinks=True):
+            for entry in files + dirs:
+                path = os.path.join(root, entry)
+                if os.path.isdir(path):
+                    inner = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                    if inner:
+                        path = os.path.join(path, inner[0])
+                    else:
+                        continue
+                elif not (entry.endswith(".nii") or entry.endswith(".nii.gz")):
+                    continue
+                
+                path_lower = path.lower()
+                if "image" in path_lower or "img" in path_lower or "avg.nii" in path_lower:
+                    if path not in image_files:
                         image_files.append(path)
-                    elif "label" in f or "seg" in f:
+                elif "label" in path_lower or "seg" in path_lower:
+                    if path not in label_files:
                         label_files.append(path)
         image_files = sorted(image_files)
         label_files = sorted(label_files)
