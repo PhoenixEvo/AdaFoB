@@ -144,9 +144,16 @@ def load_volumes(data_root):
             if img.shape != lbl.shape:
                 print(f"  WARNING: patient {pid} shape mismatch img {img.shape} vs lbl {lbl.shape}, skipping")
                 continue
+            
+            # Apply SABS abdominal windowing and [0, 255] scaling
+            img = img.astype(np.float64)
+            img[img > 275] = 275
+            img[img < -125] = -125
+            img = (img - img.min()) / (img.max() - img.min() + 1e-8) * 255.0
+
             img = _resize_volume(img, (256, 256), is_label=False)
             lbl = _resize_volume(lbl, (256, 256), is_label=True)
-            img = (img.astype(np.float64) - img.mean()) / (img.std() + 1e-8)
+            img = (img - img.mean()) / (img.std() + 1e-8)
             img = np.stack(3 * [img], axis=1).astype(np.float32)
             volumes.append((img, lbl))
 
