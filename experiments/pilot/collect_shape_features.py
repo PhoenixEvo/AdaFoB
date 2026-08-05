@@ -77,7 +77,7 @@ def collect_abdct_cases(abdct_root, num_cases=10):
             for entry in files + dirs:
                 path = os.path.join(root, entry)
                 if os.path.isdir(path):
-                    inner = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                    inner = [f for f in os.listdir(path) if (f.endswith(".nii") or f.endswith(".nii.gz")) and os.path.isfile(os.path.join(path, f))]
                     if inner:
                         path = os.path.join(path, inner[0])
                     else:

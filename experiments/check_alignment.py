@@ -206,7 +206,7 @@ def collect_pairs(root):
             
             path = os.path.join(r, entry)
             if os.path.isdir(path):
-                inner = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                inner = [f for f in os.listdir(path) if (f.endswith(".nii") or f.endswith(".nii.gz")) and os.path.isfile(os.path.join(path, f))]
                 if not inner:
                     continue
                 path = os.path.join(path, inner[0])

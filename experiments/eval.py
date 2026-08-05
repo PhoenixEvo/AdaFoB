@@ -231,7 +231,7 @@ def _collect_pairs(data_root):
             path = os.path.join(root, entry)
             # If Kaggle made it a directory, find the actual file inside
             if os.path.isdir(path):
-                inner_files = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                inner_files = [f for f in os.listdir(path) if (f.endswith(".nii") or f.endswith(".nii.gz")) and os.path.isfile(os.path.join(path, f))]
                 if not inner_files:
                     continue
                 path = os.path.join(path, inner_files[0])
