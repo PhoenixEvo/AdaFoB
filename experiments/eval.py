@@ -160,12 +160,7 @@ def load_volumes(data_root):
                 print(f"  WARNING: patient {pid} shape mismatch img {img.shape} vs lbl {lbl.shape}, skipping")
                 continue
             
-            # Apply SABS abdominal windowing and [0, 255] scaling
             img = img.astype(np.float64)
-            img[img > 275] = 275
-            img[img < -125] = -125
-            img = (img - img.min()) / (img.max() - img.min() + 1e-8) * 255.0
-
             img = _resize_volume(img, (256, 256), is_label=False)
             lbl = _resize_volume(lbl, (256, 256), is_label=True)
             img = (img - img.mean()) / (img.std() + 1e-8)
@@ -209,7 +204,10 @@ def sample_episode(volumes, organ_cls, n_shot=1):
     sv_idx, s_valid = candidates[si]
     qv_idx, q_valid = candidates[qi]
 
-    s_slices = random.sample(list(s_valid), n_shot)
+    # FoB TestDataset.get_support_index always picks the middle slice for 1-shot
+    # s_valid is an array of valid slice indices.
+    mid_idx = int(0.5 * len(s_valid))
+    s_slices = [s_valid[mid_idx]]
     q_pool = [s for s in q_valid if sv_idx != qv_idx or s not in s_slices]
     if not q_pool:
         q_pool = list(q_valid)
