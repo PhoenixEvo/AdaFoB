@@ -173,6 +173,7 @@ def main():
     ap.add_argument("--data_root", type=str, default=None)
     ap.add_argument("--n_cases", type=int, default=12)
     ap.add_argument("--organs", type=str, default="1")
+    ap.add_argument("--min_pixels", type=int, default=50)
     ap.add_argument("--seed", type=int, default=2021)
     ap.add_argument("--hu_window", type=float, nargs=2, default=[-125.0, 275.0])
     ap.add_argument("--baseline_norm", choices=["dataset", "volume", "fixed"], default="dataset")
@@ -257,7 +258,7 @@ def main():
     cases = []
     for i in range(args.n_cases):
         cls = organs[i % len(organs)]
-        ep = EV.sample_episode(volumes, cls)
+        ep = EV.sample_episode(volumes, cls, min_pixels=args.min_pixels)
         if ep is None:
             continue
         qv = volumes[ep["query_vol"]]
