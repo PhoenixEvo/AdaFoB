@@ -13,8 +13,9 @@ import torch
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(_HERE, "..")))
+sys.path.append(os.path.abspath(os.path.join(_HERE, "..", "third_party", "FoB_SAM")))
 
-from third_party.FoB_SAM.models.FoB import FewShotSeg
+from models.FoB import FewShotSeg
 import experiments.eval as EV
 from data.preprocess import sam_uint8_from_canonical
 
@@ -36,7 +37,7 @@ def main():
     organs = [int(x) for x in args.organs.split(",")]
     
     # Load SAM
-    from third_party.segment_anything import sam_model_registry, SamPredictor
+    from segment_anything import sam_model_registry, SamPredictor
     sam = sam_model_registry["vit_h"](checkpoint=args.sam_ckpt).cuda().eval()
     predictor = SamPredictor(sam)
 
