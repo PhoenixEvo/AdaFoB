@@ -58,20 +58,32 @@ def load_volumes(root, hu_window=(-125.0, 275.0), limit=None):
     """Cache every volume once, in the canonical [0, 255] domain."""
     import re
     imgs, lbls = {}, {}
-    for r, _, files in os.walk(root):
-        for f in sorted(files):
-            if not (f.endswith(".nii") or f.endswith(".nii.gz")):
+    for r, dirs, files in os.walk(root, followlinks=True):
+        for entry in sorted(files + dirs):
+            path = os.path.join(r, entry)
+            if os.path.isdir(path):
+                inner = [f for f in os.listdir(path) if (f.endswith(".nii") or f.endswith(".nii.gz")) and os.path.isfile(os.path.join(path, f))]
+                if not inner:
+                    continue
+                path = os.path.join(path, inner[0])
+            elif not (entry.endswith(".nii") or entry.endswith(".nii.gz")):
                 continue
-            p = os.path.join(r, f)
-            fl = f.lower()
-            m = re.search(r"(\d+)", f)
+                
+            fl = entry.lower()
+            m = re.search(r"(\d+)", entry)
             if not m:
                 continue
             pid = m.group(1)
+            
+            # Skip corrupted 0-byte files
+            if os.path.getsize(path) == 0:
+                print(f"[WARN] Skipping corrupted 0-byte file: {path}")
+                continue
+
             if "label" in fl or "seg" in fl:
-                lbls[pid] = p
+                lbls[pid] = path
             elif "image" in fl or "img" in fl or "avg" in fl:
-                imgs[pid] = p
+                imgs[pid] = path
 
     common = sorted(set(imgs) & set(lbls))
     if limit:
