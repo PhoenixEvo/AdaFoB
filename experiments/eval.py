@@ -507,7 +507,11 @@ def gt_prompt_sanity_check(predictor, volumes, organs, organ_map, n_cases=8, n_n
             continue
 
         ys, xs = np.nonzero(gt)
-        pos = np.array([[xs.mean(), ys.mean()]], dtype=np.float32)   # (x, y)
+        # Spleen is often crescent-shaped. Mean (centroid) can fall outside the mask!
+        # Use morphological center (furthest point from background) instead.
+        dist = cv2.distanceTransform(gt, cv2.DIST_L2, 5)
+        my, mx = np.unravel_index(np.argmax(dist), dist.shape)
+        pos = np.array([[mx, my]], dtype=np.float32)   # (x, y)
 
         k = np.ones((3, 3), np.uint8)
         band = cv2.dilate(gt, k, iterations=15) - cv2.dilate(gt, k, iterations=13)
