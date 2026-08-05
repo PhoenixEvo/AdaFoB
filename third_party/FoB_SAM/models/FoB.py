@@ -317,30 +317,27 @@ class FewShotSeg(nn.Module):
     def load_state_dict(self, state_dict, strict=True):
         # Zero-pad N_p-dependent weights from 10 to max_points (24) to maintain baseline parity
         if "masked_attention.conv.weight" in state_dict:
-            w = state_dict["masked_attention.conv.weight"]
-            if w.shape[0] == 10 and self.max_points > 10:
-                padded = torch.zeros((self.max_points, w.shape[1], w.shape[2], w.shape[3]), dtype=w.dtype, device=w.device)
-                padded[:10] = w
+            w = state_dict["masked_attention.conv.weight"] # [1, 10, 1, 1]
+            if w.shape[1] == 10 and self.max_points > 10:
+                padded = torch.zeros((w.shape[0], self.max_points, w.shape[2], w.shape[3]), dtype=w.dtype, device=w.device)
+                padded[:, :10] = w
                 state_dict["masked_attention.conv.weight"] = padded
                 
-            w = state_dict["masked_attention.conv.bias"]
-            if w.shape[0] == 10 and self.max_points > 10:
-                padded = torch.zeros((self.max_points,), dtype=w.dtype, device=w.device)
-                padded[:10] = w
-                state_dict["masked_attention.conv.bias"] = padded
-                
+            w_b = state_dict.get("masked_attention.conv.bias")
+            if w_b is not None and w_b.shape[0] == 1:
+                pass # bias for Conv2d(24, 1) is just 1, no need to pad!
         if "head.head.3.weight" in state_dict:
-            w = state_dict["head.head.3.weight"]
+            w = state_dict["head.head.3.weight"] # [10, in_channels, 1, 1]
             if w.shape[0] == 10 and self.max_points > 10:
                 padded = torch.zeros((self.max_points, w.shape[1], w.shape[2], w.shape[3]), dtype=w.dtype, device=w.device)
                 padded[:10] = w
                 state_dict["head.head.3.weight"] = padded
                 
-            w = state_dict["head.head.3.bias"]
-            if w.shape[0] == 10 and self.max_points > 10:
-                padded = torch.zeros((self.max_points,), dtype=w.dtype, device=w.device)
-                padded[:10] = w
-                state_dict["head.head.3.bias"] = padded
+            w_b = state_dict.get("head.head.3.bias")
+            if w_b is not None and w_b.shape[0] == 10 and self.max_points > 10:
+                padded_b = torch.zeros((self.max_points,), dtype=w_b.dtype, device=w_b.device)
+                padded_b[:10] = w_b
+                state_dict["head.head.3.bias"] = padded_b
                 
         return super().load_state_dict(state_dict, strict)
 
