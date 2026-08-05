@@ -269,13 +269,6 @@ def load_volumes(data_root, hu_window=(-125.0, 275.0), limit=None):
                   f"img {img.shape} vs lbl {lbl.shape}, skipping")
             continue
 
-        # FIX ALIGNMENT: Z-shift of -5 detected by check_alignment.py
-        # lbl[z] matches img[z-5], so img[0] matches lbl[5]
-        if img.shape[0] <= 5:
-            continue
-        img = img[:-5]
-        lbl = lbl[5:]
-
         raw_min, raw_max = float(img.min()), float(img.max())
         img = _resize_volume(img.astype(np.float64), (256, 256), is_label=False)
         lbl = _resize_volume(lbl.astype(np.int32), (256, 256), is_label=True)

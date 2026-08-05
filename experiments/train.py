@@ -87,14 +87,6 @@ def load_volumes(root, hu_window=(-125.0, 275.0), limit=None):
         if img.shape != lbl.shape:
             print(f"  skip {pid}: shape {img.shape} vs {lbl.shape}")
             continue
-
-        # FIX ALIGNMENT: Z-shift of -5 detected by check_alignment.py
-        # lbl[z] matches img[z-5], so img[0] matches lbl[5]
-        if img.shape[0] <= 5:
-            continue
-        img = img[:-5]
-        lbl = lbl[5:]
-
         img = resize_volume(img, (256, 256), is_label=False)
         lbl = resize_volume(lbl, (256, 256), is_label=True)
         canon, domain = to_canonical(img, hu_window)
