@@ -5,18 +5,18 @@ import numpy as np
 import cv2
 
 class PromptBudgetAllocator(nn.Module):
-    def __init__(self, max_points=24, device='cuda'):
+    def __init__(self, max_points=24, device='cuda', nu=0.05, lam=1.0, gamma=1.0, a0=0.4, tau=0.1, alpha=0.35):
         super().__init__()
         self.max_points = max_points
         self.device = device
         
         # Budget parameters
-        self.nu = 0.05       # Prompts per unit boundary length
-        self.lam = 1.0       # Curvature multiplier
-        self.gamma = 1.0     # Leak risk multiplier
-        self.a0 = 0.4        # Sigmoid center
-        self.tau = 0.1       # Sigmoid temperature
-        self.alpha_r = 0.35  # Scale-adaptive offset multiplier
+        self.nu = nu         # Prompts per unit boundary length
+        self.lam = lam       # Curvature multiplier
+        self.gamma = gamma   # Leak risk multiplier
+        self.a0 = a0         # Sigmoid center
+        self.tau = tau       # Sigmoid temperature
+        self.alpha = alpha   # Scale-adaptive offset multiplier
         
         # Ambiguity weights
         self.w = [0.5, 0.3, 0.2]
