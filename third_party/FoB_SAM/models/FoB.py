@@ -309,7 +309,7 @@ class FewShotSeg(nn.Module):
         from .skeleton_graph_prior import GAPGenerator
         self.gap_generator = GAPGenerator(np_count=self.num_points, k_neighbors=2)
 
-    def forward(self, supp_imgs, supp_mask, qry_imgs, qry_labels, train):
+    def forward(self, supp_imgs, supp_mask, qry_imgs, qry_labels, train, use_skeleton=True):
 
         """
         Args:
@@ -364,8 +364,12 @@ class FewShotSeg(nn.Module):
         if supp_mask[[0], 0, 0].max() > 0. and qry_labels.max() > 0.:
 
             # ***************************** Background Prompt Prototype Construction ********************************
-            points_spt, A_spt = self.gap_generator.generate(supp_mask[0].squeeze().cpu().numpy())
-            A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, K, K]
+            if use_skeleton:
+                points_spt, A_spt = self.gap_generator.generate(supp_mask[0].squeeze().cpu().numpy())
+                A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, K, K]
+            else:
+                points_spt = self.uniform_sample_contour(supp_mask[0], num_keypoints=self.num_points)
+                A_spt = None
             
             heatmaps_spt = self.generate_keypoint_heatmaps(img_size, points_spt) #(10, 256, 256)
             heatmaps_spt = torch.from_numpy(heatmaps_spt).cuda()
@@ -410,7 +414,10 @@ class FewShotSeg(nn.Module):
 
             # ************************************* Optimization *************************************
             if train:
-                gt, A_gt = self.gap_generator.generate(qry_labels.squeeze().cpu().numpy())
+                if use_skeleton:
+                    gt, A_gt = self.gap_generator.generate(qry_labels.squeeze().cpu().numpy())
+                else:
+                    gt = self.uniform_sample_contour(qry_labels.unsqueeze(0).float(), num_keypoints=self.num_points)
 
                 heatmaps_gt = self.generate_keypoint_heatmaps(img_size, gt) #(10, 256, 256)
                 heatmap_loss = self.criterion(heatmap.unsqueeze(0), torch.from_numpy(heatmaps_gt).unsqueeze(0).cuda(), None) 
