@@ -298,9 +298,7 @@ class FewShotSeg(nn.Module):
         self.max_points = 24
         self.feature_dim = 512
         self.pre_process = transforms.Compose([
-            transforms.ToTensor(),
             transforms.Resize((256, 256)),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         self.head = Head(self.feature_dim, (256, 256), max_points=self.max_points)
         self.criterion = JointsMSELoss(use_target_weight=False)
