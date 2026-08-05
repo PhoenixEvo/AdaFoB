@@ -199,20 +199,27 @@ def collect_pairs(root):
                 if os.path.exists(p.replace("image_", "label_"))]
 
     idict, ldict = {}, {}
-    for r, _, files in os.walk(root, followlinks=True):
-        for f in sorted(files):
-            if not (f.endswith(".nii") or f.endswith(".nii.gz")):
+    for r, dirs, files in os.walk(root, followlinks=True):
+        for entry in sorted(files + dirs):
+            if not (entry.endswith(".nii") or entry.endswith(".nii.gz")):
                 continue
-            p = os.path.join(r, f)
-            fl = f.lower()
-            m = re.search(r"(\d+)", f)
+            
+            path = os.path.join(r, entry)
+            if os.path.isdir(path):
+                inner = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                if not inner:
+                    continue
+                path = os.path.join(path, inner[0])
+                
+            fl = entry.lower()
+            m = re.search(r"(\d+)", entry)
             if not m:
                 continue
             pid = m.group(1)
             if "label" in fl or "seg" in fl:
-                ldict[pid] = p
+                ldict[pid] = path
             elif "image" in fl or "img" in fl or "avg" in fl:
-                idict[pid] = p
+                idict[pid] = path
     return [(idict[p], ldict[p]) for p in sorted(set(idict) & set(ldict))]
 
 

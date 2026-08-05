@@ -221,13 +221,23 @@ def _collect_pairs(data_root):
         return pairs
 
     img_dict, lbl_dict = {}, {}
-    for root, _, files in os.walk(data_root, followlinks=True):
-        for f in sorted(files):
-            if not (f.endswith(".nii") or f.endswith(".nii.gz")):
+    for root, dirs, files in os.walk(data_root, followlinks=True):
+        # Kaggle might extract img0001.nii.gz into a folder img0001.nii/ containing a tmp-*.nii file
+        # We need to look at both files and directories that look like .nii
+        for entry in sorted(files + dirs):
+            if not (entry.endswith(".nii") or entry.endswith(".nii.gz")):
                 continue
-            path = os.path.join(root, f)
-            fl = f.lower()
-            match = re.search(r"(\d+)", f)
+            
+            path = os.path.join(root, entry)
+            # If Kaggle made it a directory, find the actual file inside
+            if os.path.isdir(path):
+                inner_files = [f for f in os.listdir(path) if f.endswith(".nii") or f.endswith(".nii.gz")]
+                if not inner_files:
+                    continue
+                path = os.path.join(path, inner_files[0])
+                
+            fl = entry.lower()
+            match = re.search(r"(\d+)", entry)
             if not match:
                 continue
             pid = match.group(1)
