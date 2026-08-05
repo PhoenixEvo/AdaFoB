@@ -222,6 +222,8 @@ def evaluate():
         gt_mask = sample['query_labels'][0].numpy()
         predictor.set_image(qry_img_np)
         
+        ada_pos = ada_pos.reshape(-1, 2)
+        ada_neg = ada_neg.reshape(-1, 2)
         ada_pts = np.concatenate([ada_pos, ada_neg], axis=0)
         ada_lbls = np.concatenate([np.ones(len(ada_pos)), np.zeros(len(ada_neg))], axis=0)
         ada_masks, _, _ = predictor.predict(point_coords=ada_pts, point_labels=ada_lbls, multimask_output=True)
@@ -230,6 +232,8 @@ def evaluate():
         ada_dice = compute_dice(ada_pred, gt_mask)
         ada_hd95 = compute_hd95(ada_pred, gt_mask)
         
+        base_pos = base_pos.reshape(-1, 2)
+        base_neg = base_neg.reshape(-1, 2)
         base_pts = np.concatenate([base_pos, base_neg], axis=0)
         base_lbls = np.concatenate([np.ones(len(base_pos)), np.zeros(len(base_neg))], axis=0)
         base_masks, _, _ = predictor.predict(point_coords=base_pts, point_labels=base_lbls, multimask_output=True)
