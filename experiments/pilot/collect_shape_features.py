@@ -113,7 +113,11 @@ def collect_abdct_cases(abdct_root, num_cases=10):
         if collected >= num_cases:
             break
 
-        vol = load_nifti_volume(label_path)
+        try:
+            vol = load_nifti_volume(label_path)
+        except Exception as e:
+            print(f"[WARN] Failed to load {label_path}: {e}")
+            continue
         vol_id = os.path.basename(label_path).replace(".nii.gz", "")
 
         for organ_label, organ_name in organ_map.items():
