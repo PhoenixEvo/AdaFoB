@@ -29,7 +29,7 @@ class PromptBudgetAllocator(nn.Module):
         
         # 1. a_proto
         # Extract 24 background prompts from support mask to estimate p_b_bar
-        points_spt = model.uniform_sample_contour(supp_mask.unsqueeze(0).float(), num_keypoints=24)
+        points_spt = model.uniform_sample_contour(supp_mask[0].float(), num_keypoints=24)
         if len(points_spt) > 0:
             heatmaps_spt = model.generate_keypoint_heatmaps((256, 256), points_spt)
             heatmaps_spt = torch.from_numpy(heatmaps_spt).to(self.device)
