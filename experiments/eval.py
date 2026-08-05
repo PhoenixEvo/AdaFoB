@@ -192,11 +192,11 @@ def evaluate():
     
     adafob_model = FewShotSeg(fob_args).cuda().eval()
     if os.path.exists(args.ckpt):
-        adafob_model.load_state_dict(torch.load(args.ckpt))
+        adafob_model.load_state_dict(torch.load(args.ckpt), strict=False)
         
     fob_model = FewShotSeg(fob_args).cuda().eval()
     if os.path.exists(baseline_ckpt_path):
-        fob_model.load_state_dict(torch.load(baseline_ckpt_path))
+        fob_model.load_state_dict(torch.load(baseline_ckpt_path), strict=False)
         
     results = []
     organ_map = {1: 'spleen', 2: 'rk', 3: 'lk', 6: 'liver'}
