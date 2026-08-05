@@ -51,11 +51,26 @@ def compute_hd95(pred, gt):
     gt = (gt > 0).astype(np.uint8)
     if np.sum(pred) == 0 or np.sum(gt) == 0:
         return 256.0
+    
+    from scipy.spatial.distance import cdist
     pred_pts = np.argwhere(pred)
     gt_pts = np.argwhere(gt)
-    d1 = directed_hausdorff(pred_pts, gt_pts)[0]
-    d2 = directed_hausdorff(gt_pts, pred_pts)[0]
-    return max(d1, d2)
+    
+    # Compute all pairwise distances (can be heavy, but we only have 256x256 max)
+    # For large point clouds, cdist is fast enough in 2D
+    dist_matrix = cdist(pred_pts, gt_pts)
+    
+    # For each point in pred, find the min distance to gt
+    min_dist_pred_to_gt = np.min(dist_matrix, axis=1)
+    
+    # For each point in gt, find the min distance to pred
+    min_dist_gt_to_pred = np.min(dist_matrix, axis=0)
+    
+    # Combine the minimum distances and find the 95th percentile
+    all_min_dists = np.concatenate([min_dist_pred_to_gt, min_dist_gt_to_pred])
+    hd95 = np.percentile(all_min_dists, 95)
+    
+    return float(hd95)
 
 
 # ---------------------------------------------------------------------------
