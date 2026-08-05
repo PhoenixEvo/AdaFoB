@@ -20,7 +20,7 @@ def test_allocator():
     supp_imgs = [[[torch.randn(1, 3, 256, 256).cuda()]]]
     supp_mask = [[[torch.zeros(1, 1, 256, 256).cuda()]]]
     # Make a dummy foreground mask
-    supp_mask[0][0][0, 0, 100:150, 100:150] = 1.0
+    supp_mask[0][0][0][0, 0, 100:150, 100:150] = 1.0
     
     qry_imgs = [torch.randn(1, 3, 256, 256).cuda()]
     qry_labels = torch.zeros(1, 1, 256, 256).cuda()
