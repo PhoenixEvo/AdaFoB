@@ -31,8 +31,8 @@ def test_parity():
     
     # Create dummy inputs
     B, C, H, W = 1, 3, 256, 256
-    supp_imgs = [[[torch.randn(B, C, H, W).cuda()]]]  # 1-way, 1-shot
-    supp_mask = [[[torch.randint(0, 2, (B, H, W)).cuda().float()]]]
+    supp_imgs = [[torch.randn(B, C, H, W).cuda()]]  # 1-way, 1-shot (list of lists of tensors)
+    supp_mask = [[torch.randint(0, 2, (B, H, W)).cuda().float()]]
     qry_imgs = [torch.randn(B, C, H, W).cuda()]
     qry_labels = torch.randint(0, 2, (B, H, W)).cuda().long()
     
