@@ -50,21 +50,26 @@ class EvalAbdCTEpisodeDataset(Dataset):
         try:
             import nibabel as nib
             vol = nib.load(vol_path).get_fdata()
+            vol = np.transpose(vol, (2, 1, 0)) # Convert (X,Y,Z) to (Z,Y,X)
         except ImportError:
             import SimpleITK as sitk
             vol = sitk.GetArrayFromImage(sitk.ReadImage(vol_path))
             
         slc = vol[slice_idx]
         if "label" not in vol_path and "seg" not in vol_path:
-            slc = (slc - slc.mean()) / (slc.std() + 1e-8)
-            slc = np.clip(slc * 50 + 128, 0, 255).astype(np.uint8)
-            slc = cv2.resize(slc, (256, 256))
-            slc = np.stack([slc, slc, slc], axis=0) 
-            slc = slc.astype(np.float32) / 255.0
+            # Volume-level normalization approximation
+            slc_norm = (slc - slc.mean()) / (slc.std() + 1e-8)
+            slc_fob = cv2.resize(slc_norm, (256, 256))
+            slc_fob = np.stack([slc_fob, slc_fob, slc_fob], axis=0).astype(np.float32)
+            
+            slc_uint8 = np.clip(slc_norm * 50 + 128, 0, 255).astype(np.uint8)
+            slc_sam = cv2.resize(slc_uint8, (256, 256))
+            slc_sam = np.stack([slc_sam, slc_sam, slc_sam], axis=0)
+            return slc_fob, slc_sam
         else:
             slc = cv2.resize(slc, (256, 256), interpolation=cv2.INTER_NEAREST)
             slc = slc.astype(np.int64)
-        return slc
+            return slc, None
 
     def __getitem__(self, idx):
         vol_idx = random.randint(0, len(self.label_files) - 1)
@@ -97,6 +102,7 @@ class EvalAbdCTEpisodeDataset(Dataset):
                 'support_fg_labels': [[torch.zeros(mask_shape) for _ in range(self.n_shot)] for _ in range(self.n_way)],
                 'query_images': [torch.zeros(img_shape)],
                 'query_labels': [torch.zeros(mask_shape)],
+                'query_images_sam': [np.zeros((3, 256, 256), dtype=np.uint8)],
                 'organ': organ_cls
             }
             
@@ -110,23 +116,24 @@ class EvalAbdCTEpisodeDataset(Dataset):
             way_imgs = []
             way_masks = []
             for s in supp_slices:
-                img = self._load_slice(img_path, s)
-                mask = self._load_slice(label_path, s)
+                img_fob, img_sam = self._load_slice(img_path, s)
+                mask, _ = self._load_slice(label_path, s)
                 mask = (mask == organ_cls).astype(np.float32)
-                way_imgs.append(torch.from_numpy(img))
+                way_imgs.append(torch.from_numpy(img_fob))
                 way_masks.append(torch.from_numpy(mask))
             support_imgs.append(way_imgs)
             support_masks.append(way_masks)
             
-        qry_img = self._load_slice(img_path, qry_slice)
-        qry_mask = self._load_slice(label_path, qry_slice)
+        qry_img_fob, qry_img_sam = self._load_slice(img_path, qry_slice)
+        qry_mask, _ = self._load_slice(label_path, qry_slice)
         qry_mask = (qry_mask == organ_cls).astype(np.int64)
         
         return {
             'support_images': support_imgs,
             'support_fg_labels': support_masks,
-            'query_images': [torch.from_numpy(qry_img)],
+            'query_images': [torch.from_numpy(qry_img_fob)],
             'query_labels': [torch.from_numpy(qry_mask)],
+            'query_images_sam': [qry_img_sam],
             'organ': organ_cls
         }
 
@@ -218,9 +225,9 @@ def evaluate():
             ada_neg, ada_pos = adafob_model(supp_imgs, supp_masks, qry_imgs, qry_labels, train=False, use_skeleton=True)
             base_neg, base_pos = fob_model(supp_imgs, supp_masks, qry_imgs, qry_labels, train=False, use_skeleton=False)
             
-        qry_img_np = (sample['query_images'][0].numpy().transpose(1, 2, 0) * 255).astype(np.uint8)
+        qry_img_sam_np = sample['query_images_sam'][0].transpose(1, 2, 0) # uint8 array
         gt_mask = sample['query_labels'][0].numpy()
-        predictor.set_image(qry_img_np)
+        predictor.set_image(qry_img_sam_np)
         
         ada_pos = ada_pos.reshape(-1, 2)
         ada_neg = ada_neg.reshape(-1, 2)
