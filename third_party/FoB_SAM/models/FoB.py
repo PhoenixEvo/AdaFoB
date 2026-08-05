@@ -128,8 +128,9 @@ class SPR(nn.Module):
 
 
 class Head(nn.Module):
-    def __init__(self, in_channels, out_size):
+    def __init__(self, in_channels, out_size, max_points=24):
         super(Head, self).__init__()
+        self.max_points = max_points
         self.head = nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
@@ -141,7 +142,7 @@ class Head(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(
                 in_channels=in_channels,
-                out_channels=10,
+                out_channels=max_points,
                 kernel_size=1,
                 stride=1,
                 padding=0)
@@ -199,10 +200,11 @@ class PromptMatching(nn.Module):
 
 
 class MaskedAttention(nn.Module):
-    def __init__(self, feature_dim, num_heads=4, ffn_expansion=4):
+    def __init__(self, feature_dim, num_heads=4, ffn_expansion=4, max_points=24):
         super().__init__()
         self.feature_dim = feature_dim
         self.num_heads = num_heads
+        self.max_points = max_points
         self.mha = nn.MultiheadAttention(feature_dim, num_heads, batch_first=True)
         self.norm1 = nn.LayerNorm(feature_dim)
         self.ffn = nn.Sequential(
@@ -213,9 +215,9 @@ class MaskedAttention(nn.Module):
         self.norm2 = nn.LayerNorm(feature_dim)
 
         self.matching_head = PromptMatching(feature_dim, feature_dim, feature_dim * 2)
-        self.conv = nn.Conv2d(10, 1, kernel_size=1, stride=1, padding=0)
+        self.conv = nn.Conv2d(max_points, 1, kernel_size=1, stride=1, padding=0)
         self.learnable_pos = nn.Parameter(torch.randn(1, feature_dim, 64, 64))
-        self.sin_pos = self.get_sinusoid_encoding_table(10, feature_dim).cuda()  
+        self.sin_pos = self.get_sinusoid_encoding_table(max_points, feature_dim).cuda()  
 
     def get_sinusoid_encoding_table(self, K, C):
         position = torch.arange(K).unsqueeze(1)                 # [K, 1]
@@ -293,13 +295,16 @@ class FewShotSeg(nn.Module):
             sys.exit("CUDA is not available.") 
         self.scaler = 20.0
         self.num_points = 10
+        self.max_points = 24
         self.feature_dim = 512
         self.pre_process = transforms.Compose([
+            transforms.ToTensor(),
             transforms.Resize((256, 256)),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
-        self.head = Head(self.feature_dim, (256, 256))
+        self.head = Head(self.feature_dim, (256, 256), max_points=self.max_points)
         self.criterion = JointsMSELoss(use_target_weight=False)
-        self.masked_attention = MaskedAttention(self.feature_dim, num_heads=1, ffn_expansion=1)
+        self.masked_attention = MaskedAttention(self.feature_dim, num_heads=1, ffn_expansion=1, max_points=self.max_points)
         self.L2_loss = nn.MSELoss()
         self.nllloss = nn.NLLLoss(ignore_index=255, weight=torch.FloatTensor([0.1, 1.0]).cuda())
         self.refine = SPR(self.feature_dim, num_heads=1, num_points=8) 
@@ -307,9 +312,39 @@ class FewShotSeg(nn.Module):
 
         # GO-NARROW: AdaFoB GAP module replaces fixed ring topology
         from .skeleton_graph_prior import GAPGenerator
-        self.gap_generator = GAPGenerator(np_count=self.num_points, k_neighbors=2)
+        self.gap_generator = GAPGenerator(np_count=self.max_points, k_neighbors=2)
 
-    def forward(self, supp_imgs, supp_mask, qry_imgs, qry_labels, train, use_skeleton=True):
+    def load_state_dict(self, state_dict, strict=True):
+        # Zero-pad N_p-dependent weights from 10 to max_points (24) to maintain baseline parity
+        if "masked_attention.conv.weight" in state_dict:
+            w = state_dict["masked_attention.conv.weight"]
+            if w.shape[0] == 10 and self.max_points > 10:
+                padded = torch.zeros((self.max_points, w.shape[1], w.shape[2], w.shape[3]), dtype=w.dtype, device=w.device)
+                padded[:10] = w
+                state_dict["masked_attention.conv.weight"] = padded
+                
+            w = state_dict["masked_attention.conv.bias"]
+            if w.shape[0] == 10 and self.max_points > 10:
+                padded = torch.zeros((self.max_points,), dtype=w.dtype, device=w.device)
+                padded[:10] = w
+                state_dict["masked_attention.conv.bias"] = padded
+                
+        if "head.head.3.weight" in state_dict:
+            w = state_dict["head.head.3.weight"]
+            if w.shape[0] == 10 and self.max_points > 10:
+                padded = torch.zeros((self.max_points, w.shape[1], w.shape[2], w.shape[3]), dtype=w.dtype, device=w.device)
+                padded[:10] = w
+                state_dict["head.head.3.weight"] = padded
+                
+            w = state_dict["head.head.3.bias"]
+            if w.shape[0] == 10 and self.max_points > 10:
+                padded = torch.zeros((self.max_points,), dtype=w.dtype, device=w.device)
+                padded[:10] = w
+                state_dict["head.head.3.bias"] = padded
+                
+        return super().load_state_dict(state_dict, strict)
+
+    def forward(self, supp_imgs, supp_mask, qry_imgs, qry_labels, train, use_skeleton=True, budget_Np=None):
 
         """
         Args:
@@ -321,7 +356,10 @@ class FewShotSeg(nn.Module):
                 way x shot x [B x H x W], list of lists of tensors
             qry_imgs: query images
                 N x [B x 3 x H x W], list of tensors  (1, 3, 257, 257)
+            budget_Np: (Optional) The predicted budget of negative points. Defaults to self.num_points (10).
         """
+        if budget_Np is None:
+            budget_Np = self.num_points
         
         self.n_ways = len(supp_imgs)
         self.n_shots = len(supp_imgs[0])
@@ -368,17 +406,32 @@ class FewShotSeg(nn.Module):
                 points_spt, A_spt = self.gap_generator.generate(supp_mask[0].squeeze().cpu().numpy())
                 A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, K, K]
             else:
-                points_spt = self.uniform_sample_contour(supp_mask[0], num_keypoints=self.num_points)
+                points_spt = self.uniform_sample_contour(supp_mask[0], num_keypoints=budget_Np)
                 A_spt = None
             
-            heatmaps_spt = self.generate_keypoint_heatmaps(img_size, points_spt) #(10, 256, 256)
+            heatmaps_spt = self.generate_keypoint_heatmaps(img_size, points_spt) #(budget_Np, 256, 256)
             heatmaps_spt = torch.from_numpy(heatmaps_spt).cuda()
             skps = []
-            for i in range(self.num_points):
+            for i in range(budget_Np):
                 skp = [[self.getFeatures(supp_fts[0][0], heatmaps_spt[i])]] #[1, 512]
                 skp = self.getPrototype(skp)[0].transpose(0, 1)  # [512, 1]
                 skps.append(skp)
-            skps = torch.stack(skps).squeeze(2) # [10, 512]
+            
+            if budget_Np > 0:
+                skps = torch.stack(skps).squeeze(2) # [budget_Np, 512]
+            else:
+                skps = torch.zeros((0, self.feature_dim)).cuda()
+                
+            # Pad skps to max_points
+            padded_skps = torch.zeros((self.max_points, self.feature_dim)).cuda()
+            if budget_Np > 0:
+                padded_skps[:budget_Np] = skps
+            skps = padded_skps
+            
+            # Mask for BCM
+            valid_mask = torch.zeros((self.max_points,), dtype=torch.bool).cuda()
+            if budget_Np > 0:
+                valid_mask[:budget_Np] = True
 
             # ***************************** Background-centric Context Modeling *****************************
             spt_fts_ = [[self.getFeatures(supp_fts[[[0], way, shot]], supp_mask[[0], way, shot])
@@ -400,38 +453,76 @@ class FewShotSeg(nn.Module):
 
 
             # ***************************** Structure-guided Prompt Refinement *****************************
-            heatmaps_qry = self.generate_keypoint_heatmaps(img_size, pred_point) 
-            qkps = []
-            for i in range(self.num_points):
-                qkp = [[self.getFeatures(qry_fts[0], torch.from_numpy(heatmaps_qry[i]).cuda())]] 
-                qkp = self.getPrototype(qkp)[0].transpose(0, 1) 
-                qkps.append(qkp)
-            qkps = torch.stack(qkps).squeeze(2) # [10, 512]
+            if budget_Np > 0:
+                heatmaps_qry = self.generate_keypoint_heatmaps(img_size, pred_point[:budget_Np]) 
+                qkps = []
+                for i in range(budget_Np):
+                    qkp = [[self.getFeatures(qry_fts[0], torch.from_numpy(heatmaps_qry[i]).cuda())]] 
+                    qkp = self.getPrototype(qkp)[0].transpose(0, 1) 
+                    qkps.append(qkp)
+                qkps = torch.stack(qkps).squeeze(2) # [budget_Np, 512]
+            else:
+                qkps = torch.zeros((0, self.feature_dim)).cuda()
+                
+            # Pad qkps to max_points
+            padded_qkps = torch.zeros((self.max_points, self.feature_dim)).cuda()
+            if budget_Np > 0:
+                padded_qkps[:budget_Np] = qkps
+            qkps = padded_qkps
+            
+            # Pad pred_point to max_points for SPR
+            padded_pred = np.zeros((self.max_points, 2))
+            if budget_Np > 0:
+                padded_pred[:budget_Np] = pred_point[:budget_Np]
+            pred_point_padded = padded_pred
 
-            pred_point = self.refine(qkps.unsqueeze(0), torch.from_numpy(pred_point).cuda().unsqueeze(0), skps.unsqueeze(0), qry_fts[0], A_prior=A_spt).squeeze(0)  # [1, 10, 2]
+            pred_point = self.refine(qkps.unsqueeze(0), torch.from_numpy(pred_point_padded).cuda().unsqueeze(0), skps.unsqueeze(0), qry_fts[0], A_prior=A_spt).squeeze(0)  # [1, max_points, 2]
             pred_point = pred_point.squeeze(0).cpu().detach().numpy()
+            
+            # Unpad pred_point
+            if budget_Np > 0:
+                pred_point = pred_point[:budget_Np]
+            else:
+                pred_point = np.zeros((0, 2))
 
 
             # ************************************* Optimization *************************************
             if train:
                 if use_skeleton:
-                    gt, A_gt = self.gap_generator.generate(qry_labels.squeeze().cpu().numpy())
+                    gt_points, A_gt = self.gap_generator.generate(qry_labels.squeeze().cpu().numpy())
                 else:
-                    gt = self.uniform_sample_contour(qry_labels.unsqueeze(0).float(), num_keypoints=self.num_points)
-
-                heatmaps_gt = self.generate_keypoint_heatmaps(img_size, gt) #(10, 256, 256)
-                heatmap_loss = self.criterion(heatmap.unsqueeze(0), torch.from_numpy(heatmaps_gt).unsqueeze(0).cuda(), None) 
-                sim_heat = F.interpolate(sim_heat.unsqueeze(0), size=(img_size), mode='bilinear', align_corners=True)  # [10, 256, 256]
-                heatmap_loss = heatmap_loss + self.criterion(sim_heat, torch.from_numpy(heatmaps_gt).unsqueeze(0).cuda(), None)
+                    gt_points = self.uniform_sample_contour(qry_labels.unsqueeze(0).float(), num_keypoints=budget_Np)
+                    
+                # Pad gt to max_points
+                gt = np.zeros((self.max_points, 2))
+                if budget_Np > 0:
+                    gt[:budget_Np] = gt_points[:budget_Np]
                 
-                L2_loss = self.L2_loss(torch.from_numpy(pred_point).float().cuda(), torch.from_numpy(gt).float().cuda()) 
+                heatmaps_gt = self.generate_keypoint_heatmaps(img_size, gt) #(max_points, 256, 256)
+                heatmaps_gt_t = torch.from_numpy(heatmaps_gt).unsqueeze(0).cuda()
+                
+                # Apply mask to heatmap loss
+                if budget_Np > 0:
+                    heatmap_loss = self.criterion(heatmap[:, :budget_Np], heatmaps_gt_t[:, :budget_Np], None) 
+                    sim_heat = F.interpolate(sim_heat.unsqueeze(0), size=(img_size), mode='bilinear', align_corners=True)  # [1, max_points, 256, 256]
+                    heatmap_loss = heatmap_loss + self.criterion(sim_heat[:, :budget_Np], heatmaps_gt_t[:, :budget_Np], None)
+                else:
+                    heatmap_loss = torch.tensor(0.0).cuda()
+                
+                # Apply mask to L2 loss
+                if budget_Np > 0:
+                    L2_loss = self.L2_loss(torch.from_numpy(pred_point_padded[:budget_Np]).float().cuda(), torch.from_numpy(gt[:budget_Np]).float().cuda()) 
+                else:
+                    L2_loss = torch.tensor(0.0).cuda()
 
                 log_qry_pred_coarse = torch.cat([1 - qry_pred_coarse, qry_pred_coarse], dim=1).log()
                 foreground_loss = self.nllloss(log_qry_pred_coarse, qry_labels) 
 
-                for skp in skps:
-                   cos_sim = F.cosine_similarity(spt_fg_proto.transpose(1,0), skp.unsqueeze(-1), dim=0)  
-                   rac_loss += torch.clamp(0.5 + cos_sim, min=0) / self.num_points  
+                for i, skp in enumerate(skps):
+                    if i >= budget_Np:
+                        break
+                    cos_sim = F.cosine_similarity(spt_fg_proto.transpose(1,0), skp.unsqueeze(-1), dim=0)  
+                    rac_loss += torch.clamp(0.5 + cos_sim, min=0) / budget_Np  
 
 
 
