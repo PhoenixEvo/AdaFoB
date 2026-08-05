@@ -280,7 +280,8 @@ def load_volumes(data_root, hu_window=(-125.0, 275.0), limit=None):
         total_n += canon.size
 
         volumes.append({
-            "canon": canon,
+            "raw": img,
+            "canon": canon.astype(np.float32),
             "label": lbl,
             "path": ip,
             "raw_range": (raw_min, raw_max),
@@ -372,13 +373,13 @@ def build_inputs(volumes, ep, norm_fn):
 
     supp_imgs, supp_masks = [], []
     for s in ep["support_slices"]:
-        img3 = norm_fn(sv["canon"][s:s + 1])                       # (1, 3, H, W)
+        img3 = norm_fn(sv, s, s + 1)                               # (1, 3, H, W)
         supp_imgs.append(torch.from_numpy(img3).float())
         m = (sv["label"][s] == cls).astype(np.float32)
         supp_masks.append(torch.from_numpy(m).unsqueeze(0).float())
 
     q = ep["query_slice"]
-    qry_img3 = norm_fn(qv["canon"][q:q + 1])                       # (1, 3, H, W)
+    qry_img3 = norm_fn(qv, q, q + 1)                               # (1, 3, H, W)
     qry_tensor = torch.from_numpy(qry_img3).float()
     qry_mask_np = (qv["label"][q] == cls).astype(np.int64)
     qry_label = torch.from_numpy(qry_mask_np).unsqueeze(0).long()
@@ -637,19 +638,20 @@ def evaluate():
 
     def make_baseline_norm(vol):
         if b_mean is not None:
-            return lambda sl: norm_fob(sl, b_mean, b_std)
+            return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], b_mean, b_std)
         mu = float(vol["canon"].mean())
         sd = float(vol["canon"].std())
-        return lambda sl: norm_fob(sl, mu, sd)
+        return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], mu, sd)
 
     def make_adafob_norm(vol):
         if args.adafob_norm == "train_slice":
-            return norm_adafob_trainstyle
+            # train.py ran _load_slice on the raw dataset volume, NOT the canon one!
+            return lambda v, s_start, s_end: norm_adafob_trainstyle(v["raw"][s_start:s_end])
         if args.adafob_norm == "dataset":
-            return lambda sl: norm_fob(sl, stats["dataset_mean"], stats["dataset_std"])
+            return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], stats["dataset_mean"], stats["dataset_std"])
         mu = float(vol["canon"].mean())
         sd = float(vol["canon"].std())
-        return lambda sl: norm_fob(sl, mu, sd)
+        return lambda v, s_start, s_end: norm_fob(v["canon"][s_start:s_end], mu, sd)
 
     print(f"\nBaseline FoB normalisation: {args.baseline_norm}"
           + (f" (mean={b_mean:.3f}, std={b_std:.3f})" if b_mean is not None else " (per-volume)"))
