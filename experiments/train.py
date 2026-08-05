@@ -261,10 +261,13 @@ def train():
     if args.freeze_encoder:
         n_frozen = 0
         for name, p in model.named_parameters():
-            if name.startswith("encoder.") and name not in new_params:
-                p.requires_grad_(False)
-                n_frozen += 1
-        print(f"Froze {n_frozen} encoder parameters")
+            if name.startswith("refine.") or name in new_params:
+                # Always train the AdaFoB-specific modules (refine) and any missing params
+                continue
+            
+            p.requires_grad_(False)
+            n_frozen += 1
+        print(f"Froze {n_frozen} pretrained parameters (fine-tuning only AdaFoB modules)")
 
     trainable = [p for p in model.parameters() if p.requires_grad]
     n_train = sum(p.numel() for p in trainable)
