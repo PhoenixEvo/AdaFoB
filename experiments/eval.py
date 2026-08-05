@@ -226,8 +226,8 @@ def evaluate():
         ada_neg = ada_neg.reshape(-1, 2)
         ada_pts = np.concatenate([ada_pos, ada_neg], axis=0)
         ada_lbls = np.concatenate([np.ones(len(ada_pos)), np.zeros(len(ada_neg))], axis=0)
-        ada_masks, _, _ = predictor.predict(point_coords=ada_pts, point_labels=ada_lbls, multimask_output=True)
-        ada_pred = ada_masks[0]
+        ada_masks, ada_scores, _ = predictor.predict(point_coords=ada_pts, point_labels=ada_lbls, multimask_output=True)
+        ada_pred = ada_masks[np.argmax(ada_scores)]
         
         ada_dice = compute_dice(ada_pred, gt_mask)
         ada_hd95 = compute_hd95(ada_pred, gt_mask)
@@ -236,8 +236,8 @@ def evaluate():
         base_neg = base_neg.reshape(-1, 2)
         base_pts = np.concatenate([base_pos, base_neg], axis=0)
         base_lbls = np.concatenate([np.ones(len(base_pos)), np.zeros(len(base_neg))], axis=0)
-        base_masks, _, _ = predictor.predict(point_coords=base_pts, point_labels=base_lbls, multimask_output=True)
-        base_pred = base_masks[0]
+        base_masks, base_scores, _ = predictor.predict(point_coords=base_pts, point_labels=base_lbls, multimask_output=True)
+        base_pred = base_masks[np.argmax(base_scores)]
         
         base_dice = compute_dice(base_pred, gt_mask)
         base_hd95 = compute_hd95(base_pred, gt_mask)
