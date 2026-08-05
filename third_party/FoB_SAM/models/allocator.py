@@ -144,7 +144,7 @@ class PromptBudgetAllocator(nn.Module):
         r(A) = clip(alpha * sqrt(A/pi), 6, 24)
         """
         A = M_tilde.sum()
-        r = self.alpha_r * np.sqrt(A / np.pi)
+        r = self.alpha * np.sqrt(A / np.pi)
         return int(np.clip(r, 6, 24))
 
     def sample_placement(self, qry_img, M_tilde, contours, N_p, r):
