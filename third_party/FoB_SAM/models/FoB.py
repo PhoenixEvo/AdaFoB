@@ -66,25 +66,36 @@ class SPG(nn.Module):
         if use_learnable_alpha:
             self.alpha = nn.Parameter(torch.tensor(0.5))
 
-    def build_ring_adj(self, K, B, device):
+    def build_ring_adj(self, K, B, device, valid_mask=None):
         A = torch.zeros(K, K, device=device)
         for i in range(K):
+            if valid_mask is not None and not valid_mask[i]:
+                continue
             A[i, (i - 1) % K] = 1
             A[i, (i + 1) % K] = 1
         A = A.unsqueeze(0).expand(B, -1, -1)
         return A
 
-    def forward(self, query_feats, support_feats, A_prior=None):
+    def forward(self, query_feats, support_feats, A_prior=None, valid_mask=None):
         B, K, C = query_feats.shape
         theta = self.W_theta(support_feats)
         phi = self.W_phi(support_feats)
         A_dyn = torch.matmul(theta, phi.transpose(-1, -2)) / (C ** 0.5)
+        if valid_mask is not None:
+            A_dyn = A_dyn.masked_fill(~valid_mask.unsqueeze(0).unsqueeze(1), -1e9)
         A_dyn = F.softmax(A_dyn, dim=-1)
 
-        A_top = A_prior if A_prior is not None else self.build_ring_adj(K, B, query_feats.device)
+        A_top = A_prior if A_prior is not None else self.build_ring_adj(K, B, query_feats.device, valid_mask)
         alpha = torch.clamp(self.alpha, 0, 1) if self.use_learnable_alpha else 0.5
         A = alpha * A_dyn + (1 - alpha) * A_top
-        A = A / A.sum(dim=-1, keepdim=True)
+        
+        # Mask the aggregated adjacency matrix too
+        if valid_mask is not None:
+            A = A.masked_fill(~valid_mask.unsqueeze(0).unsqueeze(1), 0.0)
+            
+        A_sum = A.sum(dim=-1, keepdim=True)
+        A_sum[A_sum == 0] = 1.0 # avoid division by zero
+        A = A / A_sum
 
         M = torch.sigmoid(self.mlp_mod(query_feats))
         WQ = self.W(query_feats)
@@ -93,17 +104,17 @@ class SPG(nn.Module):
 
 
 class SPR(nn.Module):
-    def __init__(self, in_dim, num_heads=4, num_points=10):
+    def __init__(self, in_dim, num_heads=4, num_points=10, max_points=24):
         super().__init__()
         self.gcn = SPG(in_dim)
         self.self_attn = nn.MultiheadAttention(in_dim, num_heads, batch_first=True)
-        self.deform_attn = IDR(in_dim, num_points)
+        self.deform_attn = IDR(in_dim, num_points, max_points)
         self.norm1 = nn.LayerNorm(in_dim)
         self.norm2 = nn.LayerNorm(in_dim)
         self.norm3 = nn.LayerNorm(in_dim)
         self.iter = 3
 
-    def forward(self, query_feats, query_points, support_feats, feat_map, A_prior=None):
+    def forward(self, query_feats, query_points, support_feats, feat_map, A_prior=None, valid_mask=None):
         """
         query_feats: [B, K, C]
         support_feats: [B, K, C]
@@ -111,10 +122,11 @@ class SPR(nn.Module):
         feat_map: [B, C, H, W]
         A_prior: optional pre-computed structure graph [B, K, K]
         """
-        gcn_out = self.gcn(query_feats, support_feats, A_prior=A_prior)
+        gcn_out = self.gcn(query_feats, support_feats, A_prior=A_prior, valid_mask=valid_mask)
         query_feats = self.norm1(query_feats + gcn_out)
-
-        attn_out, _ = self.self_attn(query_feats, query_feats, query_feats)
+        
+        key_padding_mask = ~valid_mask.unsqueeze(0) if valid_mask is not None else None
+        attn_out, _ = self.self_attn(query_feats, query_feats, query_feats, key_padding_mask=key_padding_mask)
         query_feats = self.norm2(query_feats + attn_out)
 
         for _ in range(self.iter):
@@ -471,7 +483,7 @@ class FewShotSeg(nn.Module):
                 padded_pred[:budget_Np] = pred_point[:budget_Np]
             pred_point_padded = padded_pred
 
-            pred_point = self.refine(qkps.unsqueeze(0), torch.from_numpy(pred_point_padded).cuda().unsqueeze(0), skps.unsqueeze(0), qry_fts[0], A_prior=A_spt).squeeze(0)  # [1, max_points, 2]
+            pred_point = self.refine(qkps.unsqueeze(0), torch.from_numpy(pred_point_padded).cuda().unsqueeze(0), skps.unsqueeze(0), qry_fts[0], A_prior=A_spt, valid_mask=valid_mask).squeeze(0)  # [1, max_points, 2]
             pred_point = pred_point.squeeze(0).cpu().detach().numpy()
             
             # Unpad pred_point
