@@ -85,10 +85,20 @@ def load_volumes(data_root):
     """Load all image/label volume pairs.
 
     Returns list of (img_3ch, label) where
-        img_3ch : (Z, 3, H, W) float32  -- z-score normalised per volume
-        label   : (Z, H, W) int
+        img_3ch : (Z, 3, 256, 256) float32  -- z-score normalised per volume, resized
+        label   : (Z, 256, 256) int          -- resized with nearest interpolation
     """
+    import re
+    import cv2
     volumes = []
+
+    def _resize_volume(vol, size=(256, 256), is_label=False):
+        """Resize each slice of a 3D volume to (size)."""
+        out = np.zeros((vol.shape[0], size[1], size[0]), dtype=vol.dtype)
+        interp = cv2.INTER_NEAREST if is_label else cv2.INTER_LINEAR
+        for z in range(vol.shape[0]):
+            out[z] = cv2.resize(vol[z], size, interpolation=interp)
+        return out
 
     # 1) Try FoB preprocessed layout: sabs_CT_normalized/image_*.nii.gz
     fob_dir = os.path.join(data_root, "sabs_CT_normalized")
@@ -102,28 +112,40 @@ def load_volumes(data_root):
                 continue
             img = sitk.GetArrayFromImage(sitk.ReadImage(ip))  # (Z, H, W)
             lbl = sitk.GetArrayFromImage(sitk.ReadImage(lp))
+            img = _resize_volume(img, (256, 256), is_label=False)
+            lbl = _resize_volume(lbl, (256, 256), is_label=True)
             img = (img.astype(np.float64) - img.mean()) / (img.std() + 1e-8)
-            img = np.stack(3 * [img], axis=1).astype(np.float32)  # (Z, 3, H, W)
+            img = np.stack(3 * [img], axis=1).astype(np.float32)  # (Z, 3, 256, 256)
             volumes.append((img, lbl))
     else:
-        # 2) Raw BTCV / AbdCT layout
-        img_files, lbl_files = [], []
+        # 2) Raw BTCV / AbdCT layout — pair by patient number
+        img_dict, lbl_dict = {}, {}
         for root, _, files in os.walk(data_root):
             for f in sorted(files):
                 if not (f.endswith(".nii") or f.endswith(".nii.gz")):
                     continue
                 path = os.path.join(root, f)
                 fl = f.lower()
+                match = re.search(r"(\d+)", f)
+                if not match:
+                    continue
+                pid = match.group(1)
                 if "label" in fl or "seg" in fl:
-                    lbl_files.append(path)
+                    lbl_dict[pid] = path
                 elif "image" in fl or "img" in fl or "avg" in fl:
-                    img_files.append(path)
-        img_files.sort()
-        lbl_files.sort()
-        print(f"Found raw data: {len(img_files)} images, {len(lbl_files)} labels")
-        for ip, lp in zip(img_files, lbl_files):
-            img = sitk.GetArrayFromImage(sitk.ReadImage(ip))
-            lbl = sitk.GetArrayFromImage(sitk.ReadImage(lp))
+                    img_dict[pid] = path
+
+        common = sorted(set(img_dict.keys()) & set(lbl_dict.keys()))
+        print(f"Found raw data: {len(img_dict)} images, {len(lbl_dict)} labels, {len(common)} paired")
+
+        for pid in common:
+            img = sitk.GetArrayFromImage(sitk.ReadImage(img_dict[pid]))
+            lbl = sitk.GetArrayFromImage(sitk.ReadImage(lbl_dict[pid]))
+            if img.shape != lbl.shape:
+                print(f"  WARNING: patient {pid} shape mismatch img {img.shape} vs lbl {lbl.shape}, skipping")
+                continue
+            img = _resize_volume(img, (256, 256), is_label=False)
+            lbl = _resize_volume(lbl, (256, 256), is_label=True)
             img = (img.astype(np.float64) - img.mean()) / (img.std() + 1e-8)
             img = np.stack(3 * [img], axis=1).astype(np.float32)
             volumes.append((img, lbl))
