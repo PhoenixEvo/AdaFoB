@@ -106,9 +106,10 @@ class SPG(nn.Module):
 class SPR(nn.Module):
     def __init__(self, in_dim, num_heads=4, num_points=10, max_points=24):
         super().__init__()
+        self.max_points = max_points
         self.gcn = SPG(in_dim)
         self.self_attn = nn.MultiheadAttention(in_dim, num_heads, batch_first=True)
-        self.deform_attn = IDR(in_dim, num_points, max_points)
+        self.deform_attn = IDR(in_dim, num_points)
         self.norm1 = nn.LayerNorm(in_dim)
         self.norm2 = nn.LayerNorm(in_dim)
         self.norm3 = nn.LayerNorm(in_dim)
