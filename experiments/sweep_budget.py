@@ -120,8 +120,8 @@ def main():
                 print(f"Forward failed: {e}")
                 continue
                 
-            pos_pts = EV._as_points(pos_p)[:, ::-1].copy() # [N, 2]
-            neg_pts = EV._as_points(neg_p)[:, ::-1].copy() # [10, 2]
+            pos_pts = EV._as_points(pos_p).copy() # [N, 2]
+            neg_pts = EV._as_points(neg_p).copy() # [10, 2]
             
             # 2. Get oracle prompts (for ceiling)
             o_pos, o_neg = oracle_prompts(gt, n_pos=10, n_neg=10, rng=random.Random(args.seed))
