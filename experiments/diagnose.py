@@ -210,17 +210,17 @@ def main():
 
     def base_norm(vol):
         if b_mu is not None:
-            return lambda sl: EV.norm_fob(sl, b_mu, b_sd)
+            return lambda v, start, end: EV.norm_fob(v["canon"][start:end], b_mu, b_sd)
         mu, sd = float(vol["canon"].mean()), float(vol["canon"].std())
-        return lambda sl: EV.norm_fob(sl, mu, sd)
+        return lambda v, start, end: EV.norm_fob(v["canon"][start:end], mu, sd)
 
     def ada_norm(vol):
         if args.adafob_norm == "train_slice":
-            return EV.norm_adafob_trainstyle
+            return lambda v, start, end: EV.norm_adafob_trainstyle(v["raw"][start:end])
         if args.adafob_norm == "dataset":
-            return lambda sl: EV.norm_fob(sl, stats["dataset_mean"], stats["dataset_std"])
+            return lambda v, start, end: EV.norm_fob(v["canon"][start:end], stats["dataset_mean"], stats["dataset_std"])
         mu, sd = float(vol["canon"].mean()), float(vol["canon"].std())
-        return lambda sl: EV.norm_fob(sl, mu, sd)
+        return lambda v, start, end: EV.norm_fob(v["canon"][start:end], mu, sd)
 
     # models
     dummy = type("A", (), {})()
