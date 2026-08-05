@@ -50,7 +50,7 @@ class PromptBudgetAllocator(nn.Module):
         # 2. a_edge
         # a_edge = 1 - norm(mean(grad_I) on contour / mean(grad_I) on body)
         # We need gradient of query image (convert to grayscale first)
-        qry_img_np = qry_img[0].permute(1, 2, 0).cpu().numpy()
+        qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
         qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
         
         # Compute gradient magnitude
@@ -162,7 +162,7 @@ class PromptBudgetAllocator(nn.Module):
         if len(offset_contours) == 0:
             return np.zeros((0, 2), dtype=np.float32)
             
-        qry_img_np = qry_img[0].permute(1, 2, 0).cpu().numpy()
+        qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
         qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
         
         # We need to sample N_p points proportional to contour lengths
