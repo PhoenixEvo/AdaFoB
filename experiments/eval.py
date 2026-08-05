@@ -87,6 +87,7 @@ class EvalAbdCTEpisodeDataset(Dataset):
         try:
             import nibabel as nib
             gt_vol = nib.load(label_path).get_fdata()
+            gt_vol = np.transpose(gt_vol, (2, 1, 0)) # Convert (X,Y,Z) to (Z,Y,X)
         except ImportError:
             import SimpleITK as sitk
             gt_vol = sitk.GetArrayFromImage(sitk.ReadImage(label_path))
