@@ -221,7 +221,7 @@ def _collect_pairs(data_root):
         return pairs
 
     img_dict, lbl_dict = {}, {}
-    for root, _, files in os.walk(data_root):
+    for root, _, files in os.walk(data_root, followlinks=True):
         for f in sorted(files):
             if not (f.endswith(".nii") or f.endswith(".nii.gz")):
                 continue

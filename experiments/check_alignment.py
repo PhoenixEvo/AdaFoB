@@ -199,7 +199,7 @@ def collect_pairs(root):
                 if os.path.exists(p.replace("image_", "label_"))]
 
     idict, ldict = {}, {}
-    for r, _, files in os.walk(root):
+    for r, _, files in os.walk(root, followlinks=True):
         for f in sorted(files):
             if not (f.endswith(".nii") or f.endswith(".nii.gz")):
                 continue
