@@ -1,0 +1,169 @@
+% ===========================================================================
+%  AdaFoB -- Implementation Details / Experimental Setup
+%  Requires: \usepackage{xcolor}
+%            \newcommand{\needsnum}[1]{\textcolor{red}{[NUMBER PENDING: #1]}}
+%            \newcommand{\needsrun}[1]{\textcolor{red}{[EXPERIMENT PENDING: #1]}}
+%
+%  FACTUAL WARNING (read before editing):
+%    Abd-CT, SABS and BTCV are THREE NAMES FOR ONE DATASET (Synapse
+%    syn3193805, Multi-Atlas Labeling Beyond the Cranial Vault). Do not write
+%    that this work "replaced SABS with Abd-CT" -- that sentence is false and
+%    a reviewer familiar with the ALPNet/FoB lineage will catch it instantly.
+%    What changed is the PREPROCESSING PIPELINE, and that is what we declare.
+% ===========================================================================
+
+\section{Experimental Setup and Implementation Details}
+\label{sec:implementation}
+
+\subsection{Dataset}
+\label{subsec:dataset}
+
+We evaluate on \textbf{Abd-CT}, the abdominal CT benchmark used by the FSMIS
+literature, comprising $30$ volumetric contrast-enhanced scans from the
+Multi-Atlas Labeling Beyond the Cranial Vault challenge (Synapse
+\texttt{syn3193805}). This resource appears in prior work under three
+interchangeable names -- Abd-CT, SABS and BTCV -- and we use \emph{Abd-CT}
+throughout for consistency with FoB~\cite{bo2026fob} and
+SSL-ALPNet~\cite{ouyang2020ssl}. Following that lineage we evaluate the four
+labels common to the abdominal benchmarks: liver, spleen, and left and right
+kidney. We adopt the standard two protocols, Setting~I (test classes may occur
+unlabelled in training backgrounds) and Setting~II (test classes are entirely
+unseen), with $5$-fold cross-validation.
+
+Abd-CT is an appropriate testbed for our hypothesis for two reasons beyond
+comparability. First, the four evaluated organs span roughly an order of
+magnitude in cross-sectional area, and within a single organ the axial area
+varies strongly from the first to the last annotated slice; this within-benchmark
+scale variance is precisely the axis that a fixed prompt budget cannot exploit.
+Second, the label set contains structurally irregular organs (notably the
+pancreas and the great vessels) that can be added to stratify results by shape
+complexity without introducing a second imaging domain.
+
+\paragraph{Preprocessing and a declared protocol deviation.}
+FoB consumes volumes preprocessed by the pipeline of Ouyang
+et~al.~\cite{ouyang2020ssl}, distributed as \texttt{sabs\_CT\_normalized}. Due
+to distribution and formatting incompatibilities in our compute environment we
+were unable to use that artefact and instead preprocess the source volumes
+ourselves. Our pipeline clips Hounsfield units to $[-125, 275]$, rescales
+linearly to $[0,255]$, resamples slices to $256\times256$ (bilinear for images,
+nearest-neighbour for labels), and applies $z$-score normalisation using
+statistics pooled across the corpus rather than per volume. Pooled statistics
+are used because our volumes are cropped along the $z$-axis to the annotated
+extent, which destabilises per-volume statistics.
+
+We state explicitly that this is a \emph{deviation} from the reference
+protocol. Consequently we do \emph{not} copy published Abd-CT numbers into our
+comparison tables. Every baseline we compare against, including FoB, is
+re-evaluated by us under this identical pipeline from the authors' released
+checkpoints, and figures quoted from the literature are marked as such. This
+costs us direct numerical comparability with the published tables and we regard
+declaring it as preferable to an unstated protocol mismatch.
+
+\subsection{Training Strategy: Parameter-Isolated Fine-Tuning}
+\label{subsec:training}
+
+AdaFoB is initialised from the released FoB Abd-CT checkpoint and fine-tuned
+with \textbf{all pretrained parameters frozen}: gradients propagate only to the
+newly introduced GAP module (\texttt{refine.*} in our implementation) and to any
+parameter absent from the pretrained state dictionary. Concretely, of
+\needsnum{total parameters} parameters, \needsnum{trainable parameters} remain
+trainable.
+
+Three considerations motivate this choice, and we separate them because they
+carry different evidential weight.
+
+\textbf{Compute allocation (established).} The reference FoB schedule is
+$36{,}000$ iterations at batch size~$1$. Our budget is a free-tier accelerator
+with roughly $30$ GPU-hours per week and $9$--$12$ hour session limits. Under
+that constraint a full-network schedule of comparable length is not attainable,
+whereas restricting optimisation to the prompt-refinement module concentrates
+the entire budget on the parameters that implement the contribution. Training
+runs for \needsnum{iterations} iterations with Adam at $10^{-4}$, decayed by
+$0.95$ every $1{,}000$ iterations, gradient-norm clipping at $5.0$, and
+checkpointing every $500$ iterations with optimiser-state resumption to survive
+session preemption.
+
+\textbf{Preserving a converged prompt-localisation prior (design rationale).}
+The frozen subnetwork is not a generic feature extractor but a trained
+background-prompt localiser whose behaviour is the very baseline we intend to
+improve upon. Freezing it makes the comparison between FoB and AdaFoB an
+ablation of the sampler alone: the two systems are guaranteed to share
+identical encoder features, prototypes and refinement dynamics, so any measured
+difference is attributable to prompt geometry rather than to divergent
+optimisation of shared weights. We consider this a stronger experimental design
+than joint fine-tuning even where compute is not binding.
+
+\textbf{Stability under a randomly initialised head (to be substantiated).}
+Attaching a randomly initialised module to a converged network can, in
+principle, destabilise the pretrained weights early in training. We do not
+claim this effect as an empirical finding, because our current evidence does
+not isolate it: our earlier low-scoring runs are attributable to a training
+script that never loaded the pretrained checkpoint and ran at $2.8\%$ of the
+reference schedule, i.e.\ an undertrained randomly initialised network rather
+than a degraded pretrained one. To make a defensible claim we run the direct
+comparison in Sec.~\ref{subsec:ablations}: identical initialisation and
+schedule, with and without freezing, reporting both final metrics and the
+training-loss trajectory. \needsrun{frozen vs.\ full fine-tuning, matched
+initialisation and schedule}
+
+\subsection{Evaluation Protocol}
+\label{subsec:evaluation}
+
+We report the Dice similarity coefficient (DSC) and the $95$th-percentile
+Hausdorff distance (HD95). HD95 is computed between mask \emph{surface} voxels
+extracted by morphological erosion; predictions that are empty are assigned a
+fixed sentinel distance and the empty-prediction rate is reported alongside, so
+that a degenerate predictor cannot be flattered by the distance statistic. Note
+that FoB reports Dice only; all HD95 figures in this paper are therefore
+produced by us for every method under the identical protocol.
+
+Significance is assessed with the Wilcoxon signed-rank test over paired
+per-episode scores, and we report mean $\pm$ standard deviation across folds.
+We adopt paired per-episode testing because the effect sizes at stake are on
+the order of one Dice point, which is comparable to inter-fold variance and is
+therefore not resolvable by comparing fold means alone.
+
+\paragraph{Pipeline-validity gate.}
+Before any model comparison we run an \emph{oracle-prompt} control: SAM is
+prompted with points sampled from the morphological core of the ground-truth
+mask together with background points on the ground-truth offset band. This
+removes both prompt generators from the loop and upper-bounds what any prompt
+generator could achieve on our data. We report this control and treat it as a
+release gate: a comparison of prompt generators is only interpretable when the
+oracle clears \needsnum{oracle Dice threshold, target $\geq 0.85$}. We report
+this explicitly because prompt-based pipelines can fail silently through
+image--label misalignment or intensity-windowing errors, in which case both the
+proposed method and its baseline degrade together and the resulting comparison,
+though internally consistent, is meaningless.
+
+\paragraph{Prompt attribution analysis.}
+To localise where performance is gained or lost we additionally report a
+factorial prompt-substitution study crossing $\{$oracle, predicted$\}$ positive
+prompts with $\{$oracle, predicted$\}$ background prompts. This isolates the
+contribution of the background-prompt pathway -- the pathway that FoB
+introduces and that AdaFoB modifies -- from that of the foreground pathway, and
+we recommend it as a diagnostic for prompt-generation methods generally.
+
+\subsection{Ablations}
+\label{subsec:ablations}
+
+We plan the following, ordered by priority so that the study degrades
+gracefully under compute exhaustion:
+(i) fixed $N_{p}\in\{5,10,20\}$ versus geometry-derived $N_{p}$, including the
+equal-mean-budget control;
+(ii) uniform versus curvature-aware placement at matched budget;
+(iii) fixed versus scale-adaptive offset $r$;
+(iv) frozen versus full fine-tuning (Sec.~\ref{subsec:training});
+(v) sensitivity to $[N_{\min}, N_{\max}]$ and to $\nu$;
+(vi) an efficiency table reporting trainable parameters, prompt-generation
+latency and peak memory against FoB.
+\needsrun{all rows}
+
+\subsection{Reproducibility}
+\label{subsec:repro}
+
+All experiments use fixed seeds; preprocessing, both prompt generators and the
+metric implementations are shared by a single module so that training and
+evaluation cannot diverge in their definition of an input. Code, configurations
+and per-episode result files will be released. \needsnum{repository URL,
+anonymised for review}

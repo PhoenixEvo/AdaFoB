@@ -1,0 +1,141 @@
+% ===========================================================================
+%  AdaFoB -- Method section
+%  Requires in the preamble:
+%     \usepackage{xcolor}
+%     \newcommand{\needsnum}[1]{\textcolor{red}{[NUMBER PENDING: #1]}}
+%     \newcommand{\needsrun}[1]{\textcolor{red}{[EXPERIMENT PENDING: #1]}}
+%
+%  NOMENCLATURE WARNING (read before editing):
+%     BPPC, BCM and SPR are FoB's modules, published at CVPR 2026. They are
+%     NOT contributions of this work and must never be described as such.
+%     Our contribution is the geometry-adaptive background prompting module,
+%     implemented as `refine` in experiments/train.py. It is referred to
+%     throughout as GAP (Geometry-Adaptive Prompting).
+% ===========================================================================
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Problem Setting}
+\label{subsec:setting}
+
+We follow the standard few-shot medical image segmentation (FSMIS) protocol.
+Each episode provides a support set $\mathcal{S}=\{(\mathbf{I}^{s},\mathbf{M}^{s})\}$
+of $K$ annotated slices of a novel class and a query image $\mathbf{I}^{q}$, and the
+task is to predict the query mask $\mathbf{M}^{q}$ without updating the segmentation
+backbone. We operate in the $1$-way $1$-shot regime ($K{=}1$) unless stated
+otherwise, and we use a frozen Segment Anything Model (SAM, ViT-H) as the
+segmenter. The learnable component is therefore a \emph{prompt generator}: a
+function that maps $(\mathbf{I}^{s},\mathbf{M}^{s},\mathbf{I}^{q})$ to a set of
+point prompts that steer SAM on the query image.
+
+\subsection{Preliminaries: Background-Centric Prompting (FoB)}
+\label{subsec:fob}
+
+Our work builds directly on FoB~\cite{bo2026fob}, which reformulates SAM-based
+FSMIS as background-prompt localisation. FoB comprises three published modules,
+all of which we adopt \emph{unchanged}: Background Prompt Prototypes
+Construction (BPPC), Background-centric Context Modeling (BCM), and
+Structure-guided Prompt Refinement (SPR).
+
+BPPC samples the support background prompts from a \emph{differential dilation
+band} around the support mask,
+\begin{equation}
+  \mathcal{P} \;=\; \mathcal{U}\!\left(\rho(\mathbf{M}^{s},r) - \rho(\mathbf{M}^{s},r-\epsilon),\; N_{p}\right),
+  \label{eq:fob_band}
+\end{equation}
+where $\rho(\cdot,r)$ denotes morphological dilation with kernel size $r$,
+$\mathcal{U}(\mathcal{R},n)$ draws $n$ points uniformly from region
+$\mathcal{R}$, and FoB sets $r{=}15$, $\epsilon{=}2$ and $N_{p}{=}N_{f}{=}10$.
+Each sampled point is converted to a Gaussian heatmap and pooled into a prompt
+prototype via masked average pooling. BCM propagates context between foreground
+and background prototypes, and SPR refines the predicted query prompt
+coordinates using two graphs over the prototype set: an adaptive graph
+$\mathbf{A}^{ada}$ and a ring-topology graph $\mathbf{A}^{ring}$.
+
+We stress two properties of Eq.~\eqref{eq:fob_band} that are frequently
+mischaracterised. First, the band is \emph{mask-conformal}: it follows an
+arbitrary contour and is not a circular ring, so FoB is not restricted to
+convex targets. Second, the ring assumption enters FoB in the \emph{feature
+space} of SPR through $\mathbf{A}^{ring}$, not in the image-space sampling.
+Accurately stating this is necessary because our contribution is defined
+against the residual rigidity of the sampler, not against a strawman.
+
+\subsection{Motivation: Which Part of FoB Is Actually Rigid}
+\label{subsec:motivation}
+
+FoB's own limitations section states that the method ``does not yet support
+highly irregular and thin structures'', attributing this to the fixed number
+$N_{p}$ of background prompts and to the ring-shape prior~\cite{bo2026fob}. We
+decompose that statement into three concrete, testable sources of rigidity.
+
+\textbf{(R1) A globally fixed prompt budget.} $N_{p}$ is constant across
+episodes, so the same ten points must describe a large convex organ and a small
+elongated one. The number of prompts required to constrain SAM should instead
+scale with the length of the boundary that must be constrained.
+
+\textbf{(R2) A scale-independent offset.} The dilation radius $r{=}15$ is an
+absolute pixel distance at $256\times256$ resolution, irrespective of target
+size. FoB's own ablation shows segmentation quality is sensitive to this
+proximity, so a fixed $r$ is over-tight for small targets and over-loose for
+large ones.
+
+\textbf{(R3) Arc-length- and curvature-agnostic sampling.} $\mathcal{U}(\cdot)$
+spreads points uniformly over the band, allocating the same prompt density to
+smooth and to highly curved boundary segments. For thin or branching
+structures the dilation in Eq.~\eqref{eq:fob_band} additionally merges opposite
+walls, so the differential band becomes topologically degenerate and no longer
+separates adjacent branches.
+
+\subsection{AdaFoB: Geometry-Adaptive Background Prompting}
+\label{subsec:adafob}
+
+Our central claim is a single one: \emph{the background-prompt budget and its
+spatial allocation should be functions of target geometry rather than fixed
+hyperparameters}. We instantiate this as one module, GAP, which replaces the
+sampler of Eq.~\eqref{eq:fob_band} while leaving BPPC's prototype construction,
+BCM and SPR untouched.
+
+\textbf{Geometry-derived budget.} Given the support mask $\mathbf{M}^{s}$ we
+extract its outer contour and compute the boundary length $L$, the area $A$,
+the compactness $4\pi A / L^{2}$, and the medial-axis length. The prompt budget
+is then obtained from a single interpretable hyperparameter $\nu$, the desired
+number of prompts per unit boundary length:
+\begin{equation}
+  N_{p} \;=\; \mathrm{clip}\!\left(\left\lfloor \nu\, L \left(1 + \lambda\,\overline{|\kappa|}\right) \right\rceil,\; N_{\min},\; N_{\max}\right),
+  \label{eq:budget}
+\end{equation}
+where $\overline{|\kappa|}$ is the mean absolute contour curvature and
+$\lambda$ weights the curvature term. Because $N_{p}$ emerges from measurable
+geometry rather than a learned regression onto an unobservable target, the
+budget is interpretable, cannot overfit, and requires no additional
+supervision.
+
+\textbf{Scale-adaptive offset.} We replace the constant $r$ with a
+size-dependent radius $r(A) = \mathrm{clip}(\alpha\sqrt{A/\pi}, r_{\min},
+r_{\max})$, so prompt proximity tracks the effective radius of the target and
+addresses (R2).
+
+\textbf{Curvature-aware placement.} Points are drawn along the offset contour
+by inverse-CDF sampling of a density $d(s)\propto 1+\lambda|\hat{\kappa}(s)|$
+in arc-length parameterisation, subject to a minimum geodesic spacing $\delta$.
+This concentrates prompts where the boundary is irregular and addresses (R3).
+Each connected component of the offset region is processed independently and
+receives at least one prompt, which removes the degeneracy of
+Eq.~\eqref{eq:fob_band} on branching structures.
+
+Because Eqs.~\eqref{eq:budget} and the placement rule share one
+arc-length/curvature density, budget and placement are two readings of a single
+mechanism rather than two independent modules. This yields the factorial
+ablation of Sec.~\ref{subsec:ablations}: $\{$fixed, adaptive$\}$ budget
+$\times$ $\{$uniform, curvature-aware$\}$ placement, with the crucial control
+being a fixed budget set to the \emph{mean} adaptive budget, which isolates the
+effect of allocation from the effect of simply spending more prompts.
+
+% ---------------------------------------------------------------------------
+% REVIEWER-FACING HONESTY NOTE -- keep until the corresponding runs exist.
+% The claims in this section are architectural. None of them is supported by
+% measured numbers yet. Do not submit until Sec.~\ref{sec:implementation}
+% reports a cleared pipeline-validity gate and the ablation table is populated.
+% ---------------------------------------------------------------------------
+\needsrun{factorial budget/placement ablation; equal-mean-budget control}
