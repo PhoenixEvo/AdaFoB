@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 
 class PromptBudgetAllocator(nn.Module):
-    def __init__(self, max_points=24, device='cuda', nu=0.05, lam=1.0, gamma=1.0, a0=0.4, tau=0.1, alpha=0.35):
+    def __init__(self, max_points=24, device='cuda', nu=0.02, lam=0.5, gamma=0.5, a0=0.6, tau=0.05, alpha=0.5):
         super().__init__()
         self.max_points = max_points
         self.device = device
