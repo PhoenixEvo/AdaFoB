@@ -435,6 +435,11 @@ class FewShotSeg(nn.Module):
             if use_skeleton:
                 points_spt, A_spt = self.gap_generator.generate(supp_mask[0].squeeze().cpu().numpy())
                 A_spt = torch.from_numpy(A_spt).unsqueeze(0).to(self.device) # [1, K, K]
+                # Pad A_spt to max_points x max_points
+                A_spt_padded = torch.zeros((1, self.max_points, self.max_points), dtype=A_spt.dtype, device=A_spt.device)
+                if budget_Np > 0:
+                    A_spt_padded[0, :budget_Np, :budget_Np] = A_spt[0]
+                A_spt = A_spt_padded
             else:
                 points_spt = self.uniform_sample_contour(supp_mask[0], num_keypoints=budget_Np)
                 A_spt = None
