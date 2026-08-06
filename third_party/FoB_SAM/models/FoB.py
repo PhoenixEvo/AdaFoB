@@ -720,6 +720,19 @@ class FewShotSeg(nn.Module):
    
 
     def sort_keypoints_clockwise(self, points):
+        if not isinstance(points, np.ndarray):
+            points = np.array(points)
+        if points.ndim != 2:
+            print(f"DEBUG: sort_keypoints_clockwise received points of shape {points.shape}, ndim {points.ndim}, type {type(points)}")
+            print(f"DEBUG points content: {points}")
+            if points.ndim == 1 and len(points) == 2:
+                points = points.reshape(1, 2)
+            elif points.ndim == 1 and len(points) == 0:
+                points = points.reshape(0, 2)
+
+        if len(points) == 0:
+            return points
+
         start_point = points[np.argmin(points[:, 0])]
 
         def calculate_angle(point):
