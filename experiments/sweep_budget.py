@@ -63,8 +63,22 @@ def main():
     dummy = type("A", (), {})()
     base_ckpt = args.baseline_ckpt
     if not base_ckpt:
-        hits = glob.glob("/kaggle/working/baseline_fob/**/*.pth", recursive=True)
-        base_ckpt = hits[0] if hits else None
+        # Search multiple possible locations
+        search_paths = [
+            "/kaggle/working/baseline_fob/**/*.pth",
+            "/kaggle/working/**/*.pth",
+            "/kaggle/input/**/*.pth",
+            "outputs/checkpoints/**/*.pth"
+        ]
+        for path in search_paths:
+            hits = glob.glob(path, recursive=True)
+            hits = [h for h in hits if 'sam_vit' not in h] # filter out SAM
+            if hits:
+                base_ckpt = hits[0]
+                break
+                
+    if not base_ckpt:
+        raise FileNotFoundError("No baseline FoB checkpoint found! Please provide --baseline_ckpt.")
     
     model = FewShotSeg(dummy).cuda().eval()
     if base_ckpt:
@@ -77,7 +91,7 @@ def main():
         missing, unexpected = model.load_state_dict(cleaned, strict=False)
         print(f"FoB baseline: missing={len(missing)} unexpected={len(unexpected)}")
     else:
-        print("!! no baseline checkpoint found")
+        raise ValueError("Code should not reach here without base_ckpt")
 
     np.random.seed(args.seed)
     random.seed(args.seed)
