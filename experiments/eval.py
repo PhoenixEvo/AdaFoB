@@ -686,7 +686,8 @@ def evaluate():
     if os.path.exists(args.ckpt):
         load_checkpoint(adafob, args.ckpt, "AdaFoB", strict=args.strict_ckpt)
     else:
-        print(f"  !! AdaFoB ckpt not found: {args.ckpt} -- results will be meaningless")
+        print(f"  !! AdaFoB ckpt not found: {args.ckpt} -- loading baseline ckpt instead (since PBA is training-free)")
+        load_checkpoint(adafob, baseline_ckpt, "AdaFoB (fallback)", strict=args.strict_ckpt)
 
     fob = FewShotSeg(dummy).cuda().eval()
     load_checkpoint(fob, baseline_ckpt, "FoB baseline", strict=args.strict_ckpt)
