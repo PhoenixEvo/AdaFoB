@@ -57,23 +57,33 @@ def sweep_episode(predictor, fob, base_sample, Np_list, H, W, dummy_model, qry_i
         qry_imgs = [t.clone().cuda() for t in base_sample['query_images']]
         qry_labels = base_sample['query_labels'].clone().cuda()
         
-        # We need the FoB predictions
+        # We need the FoB predictions (24 negative points)
+        # So we force the baseline fob to predict 24 points
+        fob.allocator = None
         neg_p, pos_p = fob(supp_imgs, supp_masks, qry_imgs, qry_labels, train=False, use_skeleton=False, budget_Np=24)
         
-        # Run PBA allocator just to get Ambiguity Score (a)
-        if not hasattr(fob, 'temp_allocator'):
-            fob.temp_allocator = PromptBudgetAllocator(max_points=24).cuda()
-            
-        with torch.no_grad():
-            spt_fts = [fob.getFeatures(supp_imgs[0][0], supp_masks[0][0])]
-            spt_fg_proto = fob.getPrototype([spt_fts])[0]
-            qry_fts = fob.encoder(qry_imgs)
-            qry_pred = torch.stack([fob.getPred(qry_fts[0], spt_fg_proto[0], fob.t)], dim=1)
-            qry_pred_coarse = F.interpolate(qry_pred, size=qry_imgs.shape[-2:], mode='bilinear', align_corners=True)
-            
-            # Extract a
-            a, _, _ = fob.temp_allocator.get_ambiguity_score(qry_imgs, qry_pred_coarse, spt_fg_proto, supp_masks, fob, fob.encoder(supp_imgs)[0][0])
-            
+        # To get 'a', we can just run the allocator's internal logic once.
+        # But wait! We can just use the monkey-patched get_ambiguity_score from outside!
+        # We need qry_pred_coarse and spt_fg_proto, which we don't have without running the encoder...
+        # So instead, let's just use AdaFoB's forward pass to capture 'a'!
+        # wait, we only loaded 'fob' in this script!
+        # Let's temporarily attach our custom allocator to fob and run it just to capture 'a'.
+        fob.allocator = PromptBudgetAllocator(max_points=24).cuda()
+        
+        # Monkey patch its allocate method to save 'a'
+        original_allocate = fob.allocator.allocate
+        def capturing_allocate(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts):
+            a, contours, M_tilde = fob.allocator.get_ambiguity_score(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts)
+            fob.allocator.last_a = a
+            return original_allocate(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts)
+        fob.allocator.allocate = capturing_allocate
+        
+        # Run forward pass just to trigger allocator
+        _ = fob(supp_imgs, supp_masks, qry_imgs, qry_labels, train=False, use_skeleton=False)
+        a = getattr(fob.allocator, 'last_a', 0.0)
+        
+        # Restore fob to baseline
+        fob.allocator = None            
     except Exception as e:
         print(f"Error in forward pass: {e}")
         return None, None
