@@ -645,7 +645,7 @@ def evaluate():
     predictor = SamPredictor(sam)
 
     # --- organs present -------------------------------------------------------
-    organ_map = {1: "spleen", 2: "rk", 3: "lk", 6: "liver"}
+    organ_map = {1: "spleen", 2: "rk", 3: "lk", 6: "liver", 11: "pancreas"}
     requested = [int(x) for x in args.organs.split(",") if x.strip()]
     organ_map = {k: v for k, v in organ_map.items() if k in requested}
     print("\nChecking organ availability:")
@@ -691,6 +691,7 @@ def evaluate():
 
     fob = FewShotSeg(dummy).cuda().eval()
     load_checkpoint(fob, baseline_ckpt, "FoB baseline", strict=args.strict_ckpt)
+    fob.allocator = None  # Ensure baseline does NOT use the dynamic allocator
 
     # AdaFoB's GAP path is opt-in; the baseline must never receive it.
     ada_kwargs = {"train": False, "use_skeleton": True}
