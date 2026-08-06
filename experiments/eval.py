@@ -728,7 +728,9 @@ def evaluate():
         except TypeError:
             base_neg, base_pos = run_model(fob, base_sample, train=False)
         except Exception as e:
-            print(f"  Ep {ep_i}: FoB error: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"  Ep {ep_i+1}: FoB error: {e}")
             skipped += 1
             continue
 
