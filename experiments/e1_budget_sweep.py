@@ -19,11 +19,25 @@ from segment_anything import sam_model_registry, SamPredictor
 
 # Reuse eval.py functions
 from experiments.eval import (
-    load_volumes, prepare_models, available_organs, 
-    sample_episode, build_inputs, make_baseline_norm, 
-    run_model, sam_uint8_from_canonical, predict_sam_from_points,
-    gt_prompt_sanity_check, load_checkpoint
+    load_volumes, available_organs, 
+    sample_episode, build_inputs,
+    run_model, predict_sam_from_points,
+    load_checkpoint
 )
+
+# Inline make_baseline_norm since it's nested in evaluate() in eval.py
+def make_baseline_norm(vol, dataset_mean=35.577, dataset_std=59.635):
+    # This is a simplified version of what evaluate() does. 
+    # Just returning a function that applies dataset norm.
+    return lambda arr: (arr - dataset_mean) / dataset_std
+
+def sam_uint8_from_canonical(img):
+    # Normalize img to 0-255 uint8
+    if img.max() == img.min():
+        return np.zeros((*img.shape, 3), dtype=np.uint8)
+    norm = (img - img.min()) / (img.max() - img.min())
+    uint8 = (norm * 255).astype(np.uint8)
+    return np.stack([uint8, uint8, uint8], axis=-1)
 
 def sweep_episode(predictor, fob, base_sample, Np_list, H, W, dummy_model, qry_img_canonical):
     """Run sweep of Np for a single episode."""
@@ -103,7 +117,14 @@ def main():
     organs = available_organs(volumes, organ_map, 200)
     
     # 2. Load models
-    sam, dummy = prepare_models(device)
+    class DummyArgs:
+        pass
+    dummy = DummyArgs()
+    dummy.n_ways = 1
+    dummy.n_shots = 1
+    
+    sam_ckpt = "/kaggle/input/datasets/nhatphatnguyen/abd-ct/sam_vit_h_4b8939.pth"
+    sam = sam_model_registry["vit_h"](checkpoint=sam_ckpt).eval().cuda()
     predictor = SamPredictor(sam)
     
     fob = FewShotSeg(dummy).cuda().eval()
