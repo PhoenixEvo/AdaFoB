@@ -147,8 +147,9 @@ def main():
         contours, _ = cv2.findContours(M_tilde, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         a_proto = 0.5 * (1 + torch.nn.functional.cosine_similarity(spt_fg_proto, supp_fts.mean(dim=(2,3)), dim=-1).item())
         if len(contours) > 0:
-            grad_x = cv2.Sobel(qry_img[0][0].cpu().numpy(), cv2.CV_64F, 1, 0, ksize=3)
-            grad_y = cv2.Sobel(qry_img[0][0].cpu().numpy(), cv2.CV_64F, 0, 1, ksize=3)
+            gray_img = qry_img[0][0][0].cpu().numpy()
+            grad_x = cv2.Sobel(gray_img, cv2.CV_64F, 1, 0, ksize=3)
+            grad_y = cv2.Sobel(gray_img, cv2.CV_64F, 0, 1, ksize=3)
             grad_mag = np.sqrt(grad_x**2 + grad_y**2)
             contour_mask = np.zeros_like(M_tilde)
             cv2.drawContours(contour_mask, contours, -1, 1, 1)
