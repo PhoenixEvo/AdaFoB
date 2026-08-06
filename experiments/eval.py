@@ -581,7 +581,7 @@ def evaluate():
             if data_root:
                 break
         if not data_root:
-            data_root = "/kaggle/input/datasets/nhatphatnguyen/abd-ct/abd-ct"
+            data_root = "/kaggle/input/datasets/nhatphatnguyen/abd-ct/RawData/Training"
     print(f"Data root: {data_root}")
 
     # --- load volumes ---------------------------------------------------------
