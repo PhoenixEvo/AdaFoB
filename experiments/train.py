@@ -221,6 +221,7 @@ def train():
                          "will disagree on geometry.")
     ap.add_argument("--force_transform", type=str, default=None)
     ap.add_argument("--force_z_shift", type=int, default=0)
+    ap.add_argument("--baseline_only", type=int, default=0, help="Disable allocator for baseline training")
     args = ap.parse_args()
 
     with open(args.config) as f:
@@ -319,6 +320,10 @@ def train():
         scheduler.load_state_dict(state["scheduler"])
         start_iter = state["iter"]
         print(f"Resumed from iteration {start_iter}")
+
+    if args.baseline_only:
+        print("=> Training BASELINE FoB (Allocator disabled)")
+        model.allocator = None
 
     model.train()
     print(f"\nTraining {start_iter} -> {total_iters} iterations (lr={lr})")
