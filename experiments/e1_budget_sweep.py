@@ -9,12 +9,13 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from copy import deepcopy
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, _ROOT)
+sys.path.append(os.path.join(_ROOT, "third_party", "FoB_SAM"))
 
-from third_party.FoB_SAM.models.FoB import FewShotSeg
-from third_party.FoB_SAM.models.allocator import PromptBudgetAllocator
-from third_party.segment_anything import sam_model_registry, SamPredictor
+from models.FoB import FewShotSeg
+from models.allocator import PromptBudgetAllocator
+from segment_anything import sam_model_registry, SamPredictor
 
 # Reuse eval.py functions
 from experiments.eval import (
