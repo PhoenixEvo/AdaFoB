@@ -52,10 +52,10 @@ def sweep_episode(predictor, fob, base_sample, Np_list, H, W, dummy_model, qry_i
     try:
         # run_model returns (neg_points, pos_points)
         # We intercept FoB forward pass directly to extract intermediate predictions
-        supp_imgs = base_sample['support_images']
-        supp_masks = base_sample['support_fg_labels']
-        qry_imgs = base_sample['query_images']
-        qry_labels = base_sample['query_labels']
+        supp_imgs = [[t.clone().cuda() for t in way] for way in base_sample['support_images']]
+        supp_masks = [[t.clone().cuda() for t in way] for way in base_sample['support_fg_labels']]
+        qry_imgs = [t.clone().cuda() for t in base_sample['query_images']]
+        qry_labels = base_sample['query_labels'].clone().cuda()
         
         # We need the FoB predictions
         neg_p, pos_p = fob(supp_imgs, supp_masks, qry_imgs, qry_labels, train=False, use_skeleton=False, budget_Np=24)
