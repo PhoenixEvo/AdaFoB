@@ -22,7 +22,7 @@ from experiments.eval import (
     load_volumes, available_organs, 
     sample_episode, build_inputs,
     run_model, predict_sam_from_points,
-    load_checkpoint
+    load_checkpoint, compute_dice, compute_hd95
 )
 
 from data.preprocess import norm_zscore
@@ -96,11 +96,14 @@ def sweep_episode(predictor, fob, base_sample, Np_list, H, W, dummy_model, qry_i
         
     for np_val in Np_list:
         neg_p_subset = neg_p_all[:np_val] if np_val > 0 else np.zeros((0, 2))
+        gt = base_sample["query_mask_np"]
         
         try:
-            dice, hd95 = predict_sam_from_points(
+            pred_mask, _ = predict_sam_from_points(
                 predictor, pos_p, neg_p_subset, H, W, mask_select="max_area"
             )
+            dice = compute_dice(pred_mask, gt) if pred_mask is not None else 0.0
+            hd95 = compute_hd95(pred_mask, gt) if pred_mask is not None else 100.0
             results[np_val] = {"dice": dice, "hd95": hd95}
         except Exception as e:
             results[np_val] = {"dice": 0.0, "hd95": 100.0}
