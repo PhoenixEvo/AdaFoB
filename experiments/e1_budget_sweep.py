@@ -123,7 +123,7 @@ def main():
     dummy.n_ways = 1
     dummy.n_shots = 1
     
-    sam_ckpt = "/kaggle/input/datasets/nhatphatnguyen/abd-ct/sam_vit_h_4b8939.pth"
+    sam_ckpt = "/kaggle/working/checkpoints/sam_vit_h_4b8939.pth"
     sam = sam_model_registry["vit_h"](checkpoint=sam_ckpt).eval().cuda()
     predictor = SamPredictor(sam)
     
