@@ -25,9 +25,11 @@ from experiments.eval import (
     load_checkpoint
 )
 
+from data.preprocess import norm_zscore
+
 # Inline make_baseline_norm since it's nested in evaluate() in eval.py
 def make_baseline_norm(vol, dataset_mean=35.577, dataset_std=59.635):
-    return lambda arr: np.repeat((arr - dataset_mean) / dataset_std, 3, axis=0)
+    return lambda sl: norm_zscore(sl, dataset_mean, dataset_std)
 
 def sam_uint8_from_canonical(img):
     # Normalize img to 0-255 uint8
