@@ -145,7 +145,7 @@ def main():
         import cv2
         M_tilde = (qry_pred_coarse[0, 0] > 0.9).cpu().numpy().astype(np.uint8)
         contours, _ = cv2.findContours(M_tilde, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        a_proto = 0.5 * (1 + torch.nn.functional.cosine_similarity(spt_fg_proto, supp_fts.mean(dim=(1,2)).unsqueeze(0), dim=-1).item())
+        a_proto = 0.5 * (1 + torch.nn.functional.cosine_similarity(spt_fg_proto, supp_fts.mean(dim=(2,3)), dim=-1).item())
         if len(contours) > 0:
             grad_x = cv2.Sobel(qry_img[0][0].cpu().numpy(), cv2.CV_64F, 1, 0, ksize=3)
             grad_y = cv2.Sobel(qry_img[0][0].cpu().numpy(), cv2.CV_64F, 0, 1, ksize=3)
