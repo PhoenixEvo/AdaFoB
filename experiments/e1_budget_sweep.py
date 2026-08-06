@@ -27,9 +27,7 @@ from experiments.eval import (
 
 # Inline make_baseline_norm since it's nested in evaluate() in eval.py
 def make_baseline_norm(vol, dataset_mean=35.577, dataset_std=59.635):
-    # This is a simplified version of what evaluate() does. 
-    # Just returning a function that applies dataset norm.
-    return lambda arr: (arr - dataset_mean) / dataset_std
+    return lambda arr: np.repeat((arr - dataset_mean) / dataset_std, 3, axis=0)
 
 def sam_uint8_from_canonical(img):
     # Normalize img to 0-255 uint8
