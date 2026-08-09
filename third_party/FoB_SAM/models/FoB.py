@@ -544,11 +544,12 @@ class FewShotSeg(nn.Module):
                 log_qry_pred_coarse = torch.cat([1 - qry_pred_coarse, qry_pred_coarse], dim=1).log()
                 foreground_loss = self.nllloss(log_qry_pred_coarse, qry_labels) 
 
-                for i, skp in enumerate(skps):
-                    if i >= budget_Np:
-                        break
-                    cos_sim = F.cosine_similarity(spt_fg_proto.transpose(1,0), skp.unsqueeze(-1), dim=0)  
-                    rac_loss += torch.clamp(0.5 + cos_sim, min=0) / budget_Np  
+                if budget_Np > 0:
+                    for i, skp in enumerate(skps):
+                        if i >= budget_Np:
+                            break
+                        cos_sim = F.cosine_similarity(spt_fg_proto.transpose(1,0), skp.unsqueeze(-1), dim=0)  
+                        rac_loss += torch.clamp(0.5 + cos_sim, min=0) / budget_Np  
 
 
 

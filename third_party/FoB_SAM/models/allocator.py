@@ -252,7 +252,7 @@ class PromptBudgetAllocator(nn.Module):
             kappa[valid_idx] = np.abs(dx[valid_idx]*ddy[valid_idx] - dy[valid_idx]*ddx[valid_idx]) / denom[valid_idx]
             
             density = (1 + self.lam * kappa) * (1 + self.gamma * l_s)
-            density = density / density.sum()
+            density = density / (density.sum() + 1e-8)
             
             # Inverse CDF sampling
             cdf = np.cumsum(density)
@@ -287,3 +287,6 @@ class PromptBudgetAllocator(nn.Module):
             budget_Np = len(points)
             
         return points, budget_Np
+
+    # Alias for backward compatibility with experiment scripts
+    get_ambiguity_score = compute_ambiguity_score
