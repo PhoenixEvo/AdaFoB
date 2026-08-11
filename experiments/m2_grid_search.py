@@ -192,7 +192,15 @@ def main():
             
         for _ in tqdm(range(20)):
             episode = sample_episode(volumes, class_id, 100)
-            base_sample = build_inputs(episode, predictor, norm_fn=make_baseline_norm, rgb_fn=sam_uint8_from_canonical)
+            sv = volumes[episode["support_vol"]]
+            qv = volumes[episode["query_vol"]]
+            
+            base_sample = build_inputs(volumes, episode, make_baseline_norm(sv))
+            
+            q = episode["query_slice"]
+            qry_img_canonical = qv["canon"][q]
+            sam_img = sam_uint8_from_canonical(qry_img_canonical)
+            predictor.set_image(sam_img)
             
             # extract features
             H, W = base_sample["query_mask_np"].shape
