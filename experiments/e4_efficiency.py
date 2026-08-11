@@ -87,9 +87,9 @@ def main():
         # Monkey patch allocator to record the budget chosen
         original_allocate = adafob.allocator.allocate
         def capturing_allocate(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts):
-            budget = original_allocate(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts)
+            points, budget = original_allocate(qry_img, qry_pred_coarse, spt_fg_proto, supp_mask, model, supp_fts)
             adafob.allocator.last_budget = budget
-            return budget
+            return points, budget
         adafob.allocator.allocate = capturing_allocate
         
         base_times = []
