@@ -76,23 +76,17 @@ def preprocess_sabs(raw_dir, out_dir):
                 lbl_dir = alt
                 break
     
-    print(f"Image dir: {img_dir}")
-    print(f"Label dir: {lbl_dir}")
-    
-    img_files_raw = sorted(glob.glob(os.path.join(img_dir, "*.nii.gz")))
-    if not img_files_raw:
-        img_files_raw = sorted(glob.glob(os.path.join(img_dir, "*.nii")))
+    def find_all_nii(directory):
+        found = []
+        for root, dirs, files in os.walk(directory):
+            for f in files:
+                if f.startswith('.'): continue
+                if f.endswith(".nii") or f.endswith(".nii.gz"):
+                    found.append(os.path.join(root, f))
+        return sorted(found)
         
-    img_files = []
-    for f in img_files_raw:
-        if os.path.isdir(f):
-            inner_files = [cf for cf in os.listdir(f) if not cf.startswith('.')]
-            if inner_files:
-                img_files.append(os.path.join(f, inner_files[0]))
-        else:
-            img_files.append(f)
-    
-    print(f"Found {len(img_files)} raw images")
+    img_files = find_all_nii(img_dir)
+    print(f"Found {len(img_files)} raw image files")
     
     LIR, HIR = -125, 275  # HU window from FoB
     BD_BIAS = 32  # border crop from FoB
@@ -138,33 +132,28 @@ def preprocess_sabs(raw_dir, out_dir):
     
     for reindex, img_fid in enumerate(img_files):
         # Find matching label
-        # Get the actual basename ignoring if it was a folder or file originally
-        basename = os.path.basename(img_files_raw[reindex]) 
-        lbl_fid_raw = os.path.join(lbl_dir, basename.replace("img", "label"))
-        
-        lbl_fid = None
-        if os.path.exists(lbl_fid_raw):
-            lbl_fid = lbl_fid_raw
-        else:
-            # Try other naming conventions
-            import re
-            pid = re.search(r'(\d+)', basename).group(1)
-            candidates = glob.glob(os.path.join(lbl_dir, f"*{pid}*"))
-            if candidates:
-                lbl_fid = candidates[0]
-                
-        if not lbl_fid:
-            print(f"  WARNING: No label for {basename}, skipping")
+    # Get all label files
+    lbl_files_all = find_all_nii(lbl_dir)
+    
+    for reindex, img_fid in enumerate(img_files):
+        # Find matching label by looking for the same patient ID
+        import re
+        basename = os.path.basename(img_fid)
+        pid_match = re.search(r'(\d+)', basename)
+        if not pid_match:
+            print(f"  WARNING: No patient ID in {basename}, skipping")
             continue
             
-        # Handle Kaggle directory unzipping for labels too
-        if os.path.isdir(lbl_fid):
-            inner_files = [cf for cf in os.listdir(lbl_fid) if not cf.startswith('.')]
-            if inner_files:
-                lbl_fid = os.path.join(lbl_fid, inner_files[0])
-            else:
-                print(f"  WARNING: Empty label directory for {basename}, skipping")
-                continue
+        pid = pid_match.group(1)
+        lbl_fid = None
+        for lf in lbl_files_all:
+            if pid in os.path.basename(lf):
+                lbl_fid = lf
+                break
+                
+        if not lbl_fid:
+            print(f"  WARNING: No label found for image {basename} (pid: {pid}), skipping")
+            continue
         
         img_obj = sitk.ReadImage(img_fid)
         seg_obj = sitk.ReadImage(lbl_fid)
