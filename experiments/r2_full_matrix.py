@@ -74,14 +74,7 @@ def run_episode_matrix(predictor, fob, base_sample, Np_list, H, W, global_params
         r = fob.allocator.get_scale_adaptive_offset(M_tilde)
         points = fob.allocator.sample_placement(qry_img, M_tilde, contours, 24, r)
         
-        # Apply skeleton constraint exactly like the real allocate method
-        valid_points = np.zeros((0, 2), dtype=np.float32)
-        if len(points) > 0:
-            skeleton = model.get_skeleton(qry_pred_coarse).cpu().numpy()[0, 0]
-            valid_idx = skeleton[points[:, 1].astype(int), points[:, 0].astype(int)] == 0
-            valid_points = points[valid_idx]
-            
-        return valid_points, budget # Still return the true budget so downstream doesn't crash if it needs it
+        return points, budget # Still return the true budget so downstream doesn't crash if it needs it
 
     fob.allocator.allocate = capturing_allocate
     
