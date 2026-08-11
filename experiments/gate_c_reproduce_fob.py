@@ -269,6 +269,21 @@ def download_fob_checkpoints(ckpt_dir):
                 print(f"  Fold {fold}: OK")
             except Exception as e2:
                 print(f"  Fold {fold}: FAILED ({e2})")
+                
+    # Extract ZIP if downloaded
+    zip_path = os.path.join(ckpt_dir, "exps_train_on_SABS_FSMIS_FoB.zip")
+    if not os.path.exists(zip_path):
+        # snapshot_download puts files in nested cache structure, let's find the zip
+        zips = glob.glob(os.path.join(ckpt_dir, "**/*.zip"), recursive=True)
+        if zips:
+            zip_path = zips[0]
+            
+    if os.path.exists(zip_path):
+        print(f"Found zip archive at {zip_path}, extracting...")
+        import zipfile
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(ckpt_dir)
+        print("Extraction complete.")
     
     # Verify using flexible glob search
     for fold in range(5):
