@@ -24,6 +24,13 @@ import torch
 import SimpleITK as sitk
 from tqdm import tqdm
 
+# Install missing dependency required by FoB
+try:
+    import info_nce
+except ImportError:
+    print("Installing info-nce-pytorch...")
+    os.system("pip install info-nce-pytorch")
+
 # ============================================================================
 # CELL 1: Clone repo & setup paths
 # ============================================================================
@@ -264,12 +271,15 @@ def download_fob_checkpoints(ckpt_dir):
             except Exception as e2:
                 print(f"  Fold {fold}: FAILED ({e2})")
     
-    # Verify
+    # Verify using flexible glob search
     for fold in range(5):
-        fold_dir = os.path.join(ckpt_dir, f"exps_train_on_SABS_FSMIS_FoB", f"FSMIS_train_SABS_cv{fold}", "1", "snapshots")
-        ckpt_file = os.path.join(fold_dir, "39000.pth")
-        status = "OK" if os.path.exists(ckpt_file) else "MISSING"
-        print(f"  Fold {fold}: {status} ({ckpt_file})")
+        candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
+        if not candidates:
+            candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
+            
+        status = "OK" if candidates else "MISSING"
+        found_file = candidates[0] if candidates else "None"
+        print(f"  Fold {fold}: {status} ({found_file})")
 
 
 def download_sam(sam_path):
@@ -333,18 +343,15 @@ def compute_dice(pred, gt):
 
 
 def load_fob_checkpoint(fold, ckpt_dir):
-    """Load the correct per-fold FoB checkpoint."""
-    # Try multiple possible layouts
-    candidates = [
-        os.path.join(ckpt_dir, f"exps_train_on_SABS_FSMIS_FoB/FSMIS_train_SABS_cv{fold}/1/snapshots/39000.pth"),
-        os.path.join(ckpt_dir, f"exps_train_on_SABS_cdfs_FoB/FSMIS_train_SABS_cv{fold}/1/snapshots/39000.pth"),
-        os.path.join(ckpt_dir, f"FSMIS_train_SABS_cv{fold}/1/snapshots/39000.pth"),
-        os.path.join(ckpt_dir, f"FSMIS_train_SABS_cv{fold}/ckpt.pth"),
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return c
-    raise FileNotFoundError(f"No checkpoint found for fold {fold}. Tried: {candidates}")
+    """Load the correct per-fold FoB checkpoint dynamically."""
+    candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
+    if not candidates:
+        candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
+        
+    if candidates:
+        return candidates[0]
+        
+    raise FileNotFoundError(f"No checkpoint found for fold {fold} in {ckpt_dir}")
 
 
 def reproduce_fob_baseline():
