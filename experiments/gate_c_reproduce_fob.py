@@ -142,23 +142,23 @@ def preprocess_sabs(raw_dir, out_dir):
     lbl_files_all = find_all_nii(lbl_dir)
     
     for reindex, img_fid in enumerate(img_files):
-        # Find matching label by looking for the same patient ID
+        # Find matching label by looking for the same patient ID in the full path
         import re
-        basename = os.path.basename(img_fid)
-        pid_match = re.search(r'(\d+)', basename)
+        pid_match = re.search(r'(?:img|label)(\d+)', img_fid)
         if not pid_match:
-            print(f"  WARNING: No patient ID in {basename}, skipping")
+            print(f"  WARNING: No patient ID in {img_fid}, skipping")
             continue
             
         pid = pid_match.group(1)
         lbl_fid = None
         for lf in lbl_files_all:
-            if pid in os.path.basename(lf):
+            lf_match = re.search(r'(?:img|label)(\d+)', lf)
+            if lf_match and lf_match.group(1) == pid:
                 lbl_fid = lf
                 break
                 
         if not lbl_fid:
-            print(f"  WARNING: No label found for image {basename} (pid: {pid}), skipping")
+            print(f"  WARNING: No label found for image {img_fid} (pid: {pid}), skipping")
             continue
         
         img_obj = sitk.ReadImage(img_fid)
