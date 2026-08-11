@@ -100,24 +100,20 @@ BCM and SPR untouched.
 extract its outer contours and compute the boundary length $L$ and the mean
 absolute contour curvature $\overline{|\kappa|}$. We also calculate an
 Ambiguity Score $a \in [0, 1]$ based on the cosine similarity between the query
-foreground prototype and the support background prototypes. The prompt budget
-is then dynamically computed via:
+foreground prototype and the support background prototypes. High ambiguity
+indicates that SAM is likely to leak foreground into the background, so more
+negative prompts are needed. The prompt budget is then dynamically computed via:
 \begin{equation}
-  N_{p} \;=\; \mathrm{clip}\!\left(\left\lfloor \nu \cdot e^{-a / a_0} \cdot L \cdot (1 + \lambda\,\overline{|\kappa|}) \right\rceil,\; 0,\; 24\right),
+  N_{p} \;=\; \mathrm{clip}\!\left(\left\lfloor \nu \cdot \sigma\!\left(\frac{a - a_0}{\tau}\right) \cdot L \cdot (1 + \lambda\,\overline{|\kappa|}) \right\rceil,\; 0,\; 24\right),
   \label{eq:budget}
 \end{equation}
-where $\nu$ is the base density, $a_0$ scales the ambiguity penalty, and
-$\lambda$ weights the curvature term. Because $N_{p}$ emerges from measurable
-geometry and feature-space ambiguity rather than a fixed scalar, the budget is
-interpretable and dynamically scales down (even to $N_{p}{=}0$) when the model
-is highly confident ($a \to 0$) or the target is extremely small.
-
-Because Eq.~\eqref{eq:budget} explicitly accommodates $\lambda$, we show through
-Grid-Search that different semantic classes inherently prefer different
-geometric multipliers. For thin, highly sensitive structures like the aorta,
-the model suppresses curvature signals ($\lambda=0.0$). For larger,
-complex shapes like the gallbladder, the model maximizes curvature attention
-($\lambda=1.0$).
+where $\sigma$ is the logistic sigmoid, $\nu$ is the base density,
+$a_0$ and $\tau$ control the sigmoid centre and temperature, and
+$\lambda$ weights the curvature term. Budget rises with ambiguity:
+when foreground and background are easily separable ($a \to 0$), the gate
+$g(a) \to 0$ and the allocator suppresses negative prompts entirely;
+when they are confusable ($a \to 1$), the gate opens and the full
+geometry-derived budget is spent.
 
 % ---------------------------------------------------------------------------
 % REVIEWER-FACING HONESTY NOTE -- keep until the corresponding runs exist.

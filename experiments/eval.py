@@ -449,7 +449,7 @@ def predict_sam_from_points(predictor, pos_pts, neg_pts, H=256, W=256,
 # ---------------------------------------------------------------------------
 
 def gt_prompt_sanity_check(predictor, volumes, organs, organ_map, n_cases=8,
-                           n_neg=10, seed=0, mask_select="fixed0", n_pos=10):
+                           n_neg=0, seed=0, mask_select="fixed0", n_pos=10):
     """Feed SAM ground-truth-derived prompts (centroid + FoB-style ring band).
 
     This removes both networks from the loop.  If Dice here is low, the fault is
