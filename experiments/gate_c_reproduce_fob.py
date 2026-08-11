@@ -394,7 +394,12 @@ def reproduce_fob_baseline():
         ckpt_path = load_fob_checkpoint(fold, CKPT_DIR)
         print(f"  Checkpoint: {ckpt_path}")
         
-        fob = FewShotSeg(pretrained_path=None, use_original_imgsize=False)
+        class DummyArgs:
+            pass
+        args = DummyArgs()
+        args.dataset = "SABS"
+        
+        fob = FewShotSeg(args)
         fob.n_shots = 1
         fob.n_ways = 1
         fob.n_queries = 1
