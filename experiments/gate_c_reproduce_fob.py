@@ -79,9 +79,18 @@ def preprocess_sabs(raw_dir, out_dir):
     print(f"Image dir: {img_dir}")
     print(f"Label dir: {lbl_dir}")
     
-    img_files = sorted(glob.glob(os.path.join(img_dir, "*.nii.gz")))
-    if not img_files:
-        img_files = sorted(glob.glob(os.path.join(img_dir, "*.nii")))
+    img_files_raw = sorted(glob.glob(os.path.join(img_dir, "*.nii.gz")))
+    if not img_files_raw:
+        img_files_raw = sorted(glob.glob(os.path.join(img_dir, "*.nii")))
+        
+    img_files = []
+    for f in img_files_raw:
+        if os.path.isdir(f):
+            inner_files = [cf for cf in os.listdir(f) if not cf.startswith('.')]
+            if inner_files:
+                img_files.append(os.path.join(f, inner_files[0]))
+        else:
+            img_files.append(f)
     
     print(f"Found {len(img_files)} raw images")
     
@@ -129,17 +138,32 @@ def preprocess_sabs(raw_dir, out_dir):
     
     for reindex, img_fid in enumerate(img_files):
         # Find matching label
-        basename = os.path.basename(img_fid)
-        lbl_fid = os.path.join(lbl_dir, basename.replace("img", "label"))
-        if not os.path.exists(lbl_fid):
+        # Get the actual basename ignoring if it was a folder or file originally
+        basename = os.path.basename(img_files_raw[reindex]) 
+        lbl_fid_raw = os.path.join(lbl_dir, basename.replace("img", "label"))
+        
+        lbl_fid = None
+        if os.path.exists(lbl_fid_raw):
+            lbl_fid = lbl_fid_raw
+        else:
             # Try other naming conventions
             import re
             pid = re.search(r'(\d+)', basename).group(1)
             candidates = glob.glob(os.path.join(lbl_dir, f"*{pid}*"))
             if candidates:
                 lbl_fid = candidates[0]
+                
+        if not lbl_fid:
+            print(f"  WARNING: No label for {basename}, skipping")
+            continue
+            
+        # Handle Kaggle directory unzipping for labels too
+        if os.path.isdir(lbl_fid):
+            inner_files = [cf for cf in os.listdir(lbl_fid) if not cf.startswith('.')]
+            if inner_files:
+                lbl_fid = os.path.join(lbl_fid, inner_files[0])
             else:
-                print(f"  WARNING: No label for {basename}, skipping")
+                print(f"  WARNING: Empty label directory for {basename}, skipping")
                 continue
         
         img_obj = sitk.ReadImage(img_fid)
