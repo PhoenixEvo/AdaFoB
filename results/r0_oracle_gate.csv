@@ -1,0 +1,5 @@
+organ_id,organ_name,n_cases,oracle_pos_only_mean,oracle_pos_only_std,oracle_with_neg_mean,oracle_with_neg_std,neg_depression,gate_status
+1,spleen,30,0.8812,0.1384,0.8808,0.1184,0.0005,PASS
+2,rk,30,0.8858,0.1201,0.897,0.127,-0.0112,PASS
+3,lk,30,0.8913,0.1153,0.8813,0.1393,0.0099,PASS
+6,liver,30,0.879,0.0973,0.8692,0.1086,0.0098,PASS
