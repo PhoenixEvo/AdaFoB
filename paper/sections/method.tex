@@ -96,41 +96,28 @@ hyperparameters}. We instantiate this as one module, GAP, which replaces the
 sampler of Eq.~\eqref{eq:fob_band} while leaving BPPC's prototype construction,
 BCM and SPR untouched.
 
-\textbf{Geometry-derived budget.} Given the support mask $\mathbf{M}^{s}$ we
-extract its outer contour and compute the boundary length $L$, the area $A$,
-the compactness $4\pi A / L^{2}$, and the medial-axis length. The prompt budget
-is then obtained from a single interpretable hyperparameter $\nu$, the desired
-number of prompts per unit boundary length:
+\textbf{Geometry-derived budget.} Given the query prediction $\mathbf{M}^{q}$ we
+extract its outer contours and compute the boundary length $L$ and the mean
+absolute contour curvature $\overline{|\kappa|}$. We also calculate an
+Ambiguity Score $a \in [0, 1]$ based on the cosine similarity between the query
+foreground prototype and the support background prototypes. The prompt budget
+is then dynamically computed via:
 \begin{equation}
-  N_{p} \;=\; \mathrm{clip}\!\left(\left\lfloor \nu\, L \left(1 + \lambda\,\overline{|\kappa|}\right) \right\rceil,\; N_{\min},\; N_{\max}\right),
+  N_{p} \;=\; \mathrm{clip}\!\left(\left\lfloor \nu \cdot e^{-a / a_0} \cdot L \cdot (1 + \lambda\,\overline{|\kappa|}) \right\rceil,\; 0,\; 24\right),
   \label{eq:budget}
 \end{equation}
-where $\overline{|\kappa|}$ is the mean absolute contour curvature and
+where $\nu$ is the base density, $a_0$ scales the ambiguity penalty, and
 $\lambda$ weights the curvature term. Because $N_{p}$ emerges from measurable
-geometry rather than a learned regression onto an unobservable target, the
-budget is interpretable, cannot overfit, and requires no additional
-supervision.
+geometry and feature-space ambiguity rather than a fixed scalar, the budget is
+interpretable and dynamically scales down (even to $N_{p}{=}0$) when the model
+is highly confident ($a \to 0$) or the target is extremely small.
 
-\textbf{Scale-adaptive offset.} We replace the constant $r$ with a
-size-dependent radius $r(A) = \mathrm{clip}(\alpha\sqrt{A/\pi}, r_{\min},
-r_{\max})$, so prompt proximity tracks the effective radius of the target and
-addresses (R2).
-
-\textbf{Curvature-aware placement.} Points are drawn along the offset contour
-by inverse-CDF sampling of a density $d(s)\propto 1+\lambda|\hat{\kappa}(s)|$
-in arc-length parameterisation, subject to a minimum geodesic spacing $\delta$.
-This concentrates prompts where the boundary is irregular and addresses (R3).
-Each connected component of the offset region is processed independently and
-receives at least one prompt, which removes the degeneracy of
-Eq.~\eqref{eq:fob_band} on branching structures.
-
-Because Eqs.~\eqref{eq:budget} and the placement rule share one
-arc-length/curvature density, budget and placement are two readings of a single
-mechanism rather than two independent modules. This yields the factorial
-ablation of Sec.~\ref{subsec:ablations}: $\{$fixed, adaptive$\}$ budget
-$\times$ $\{$uniform, curvature-aware$\}$ placement, with the crucial control
-being a fixed budget set to the \emph{mean} adaptive budget, which isolates the
-effect of allocation from the effect of simply spending more prompts.
+Because Eq.~\eqref{eq:budget} explicitly accommodates $\lambda$, we show through
+Grid-Search that different semantic classes inherently prefer different
+geometric multipliers. For thin, highly sensitive structures like the aorta,
+the model suppresses curvature signals ($\lambda=0.0$). For larger,
+complex shapes like the gallbladder, the model maximizes curvature attention
+($\lambda=1.0$).
 
 % ---------------------------------------------------------------------------
 % REVIEWER-FACING HONESTY NOTE -- keep until the corresponding runs exist.
