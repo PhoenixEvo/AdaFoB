@@ -309,7 +309,7 @@ class FewShotSeg(nn.Module):
             sys.exit("CUDA is not available.") 
         self.scaler = 20.0
         self.num_points = 10
-        self.max_points = 24
+        self.max_points = getattr(args, 'max_points', 24)
         self.feature_dim = 512
         self.pre_process = transforms.Compose([
             transforms.Resize((256, 256)),

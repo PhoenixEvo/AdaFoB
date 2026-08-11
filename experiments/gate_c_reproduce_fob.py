@@ -398,6 +398,7 @@ def reproduce_fob_baseline():
             pass
         args = DummyArgs()
         args.dataset = "SABS"
+        args.max_points = 10
         
         fob = FewShotSeg(args)
         fob.n_shots = 1
