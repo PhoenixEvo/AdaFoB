@@ -52,10 +52,6 @@ SAM_CKPT = "/kaggle/working/sam_vit_h.pth"
 # ============================================================================
 # CELL 2: Preprocess RawData -> sabs_CT_normalized
 # ============================================================================
-# This replicates FoB's exact 2-step pipeline:
-#   Step 1 (intensity_normalization.py): clip HU [-125,275], min-max -> [0,255]
-#   Step 2 (resampling_and_roi.py): crop 32px border, resample to ~256x256
-# ============================================================================
 
 def preprocess_sabs(raw_dir, out_dir):
     """Exact replication of FoB's preprocessing pipeline."""
@@ -64,13 +60,11 @@ def preprocess_sabs(raw_dir, out_dir):
         return
 
     os.makedirs(out_dir, exist_ok=True)
-    
-    # Find raw image/label pairs
+
     img_dir = os.path.join(raw_dir, "Training", "img")
     lbl_dir = os.path.join(raw_dir, "Training", "label")
-    
+
     if not os.path.isdir(img_dir):
-        # Try alternative layout
         for candidate in ["images", "img", "imagesTr"]:
             alt = os.path.join(raw_dir, candidate)
             if os.path.isdir(alt):
@@ -82,7 +76,7 @@ def preprocess_sabs(raw_dir, out_dir):
             if os.path.isdir(alt):
                 lbl_dir = alt
                 break
-    
+
     def find_all_nii(directory):
         found = []
         for root, dirs, files in os.walk(directory):
@@ -91,19 +85,19 @@ def preprocess_sabs(raw_dir, out_dir):
                 if f.endswith(".nii") or f.endswith(".nii.gz"):
                     found.append(os.path.join(root, f))
         return sorted(found)
-        
+
     img_files = find_all_nii(img_dir)
     print(f"Found {len(img_files)} raw image files")
-    
-    LIR, HIR = -125, 275  # HU window from FoB
-    BD_BIAS = 32  # border crop from FoB
-    
+
+    LIR, HIR = -125, 275
+    BD_BIAS = 32
+
     def copy_spacing_ori(src, dst):
         dst.SetSpacing(src.GetSpacing())
         dst.SetOrigin(src.GetOrigin())
         dst.SetDirection(src.GetDirection())
         return dst
-    
+
     def resample_by_res(mov_img_obj, new_spacing, interpolator=sitk.sitkLinear):
         resample = sitk.ResampleImageFilter()
         resample.SetInterpolator(interpolator)
@@ -134,22 +128,19 @@ def preprocess_sabs(raw_dir, out_dir):
         if ref_img is not None:
             out_obj.CopyInformation(ref_img)
         return out_obj
-    
-    SPA_FAC = (512 - 2 * BD_BIAS) / 256  # spacing factor from FoB
-    
 
-    # Get all label files
+    SPA_FAC = (512 - 2 * BD_BIAS) / 256
+
     lbl_files_all = find_all_nii(lbl_dir)
-    
+    import re
+
     for reindex, img_fid in enumerate(img_files):
-        # Find matching label by looking for the same patient ID in the full path
-        import re
         basename = os.path.basename(img_fid)
         pid_match = re.search(r'(?:img|label)(\d+)', img_fid)
         if not pid_match:
             print(f"  WARNING: No patient ID in {img_fid}, skipping")
             continue
-            
+
         pid = pid_match.group(1)
         lbl_fid = None
         for lf in lbl_files_all:
@@ -157,55 +148,52 @@ def preprocess_sabs(raw_dir, out_dir):
             if lf_match and lf_match.group(1) == pid:
                 lbl_fid = lf
                 break
-                
+
         if not lbl_fid:
-            print(f"  WARNING: No label found for image {img_fid} (pid: {pid}), skipping")
+            print(f"  WARNING: No label for {img_fid} (pid: {pid}), skipping")
             continue
-        
+
         img_obj = sitk.ReadImage(img_fid)
         seg_obj = sitk.ReadImage(lbl_fid)
-        
+
         # Step 1: Intensity normalization (clip HU + min-max -> [0,255])
         array = sitk.GetArrayFromImage(img_obj).astype(np.float64)
         array[array > HIR] = HIR
         array[array < LIR] = LIR
         array = (array - array.min()) / (array.max() - array.min()) * 255.0
-        
+
         wined_img = sitk.GetImageFromArray(array)
         wined_img = copy_spacing_ori(img_obj, wined_img)
-        
+
         # Step 2: Crop border + resample
-        # Image
         array_crop = sitk.GetArrayFromImage(wined_img)
         array_crop = array_crop[:, BD_BIAS:-BD_BIAS, BD_BIAS:-BD_BIAS]
         cropped_img_o = sitk.GetImageFromArray(array_crop)
         cropped_img_o = copy_spacing_ori(wined_img, cropped_img_o)
-        
+
         img_spa_ori = wined_img.GetSpacing()
         res_img_o = resample_by_res(
             cropped_img_o,
             [img_spa_ori[0] * SPA_FAC, img_spa_ori[1] * SPA_FAC, img_spa_ori[-1]]
         )
-        
-        # Label
+
         lb_arr = sitk.GetArrayFromImage(seg_obj)
         lb_arr = lb_arr[:, BD_BIAS:-BD_BIAS, BD_BIAS:-BD_BIAS]
         cropped_lb_o = sitk.GetImageFromArray(lb_arr)
         cropped_lb_o = copy_spacing_ori(seg_obj, cropped_lb_o)
-        
+
         lb_spa_ori = seg_obj.GetSpacing()
         res_lb_o = resample_lb_by_res(
             cropped_lb_o,
             [lb_spa_ori[0] * SPA_FAC, lb_spa_ori[1] * SPA_FAC, lb_spa_ori[-1]],
             ref_img=res_img_o
         )
-        
-        # Save
+
         out_img = os.path.join(out_dir, f"image_{reindex}.nii.gz")
         out_lbl = os.path.join(out_dir, f"label_{reindex}.nii.gz")
         sitk.WriteImage(res_img_o, out_img, True)
         sitk.WriteImage(res_lb_o, out_lbl, True)
-        
+
         res_shape = sitk.GetArrayFromImage(res_img_o).shape
         print(f"  [{reindex}] {basename} -> {res_shape}")
 
@@ -221,27 +209,25 @@ preprocess_sabs(RAW_DATA, NORMALIZED_DIR)
 # ============================================================================
 # CELL 3: Download FoB checkpoints from HuggingFace
 # ============================================================================
-# FoB publishes per-fold checkpoints. We need all 5 for proper 5-fold CV.
-# ============================================================================
 
 def download_fob_checkpoints(ckpt_dir):
     """Download all 5 fold checkpoints from HuggingFace."""
     os.makedirs(ckpt_dir, exist_ok=True)
-    
-    # Check if already downloaded
+
     existing = []
     for fold in range(5):
-        fold_dir = os.path.join(ckpt_dir, f"FSMIS_train_SABS_cv{fold}")
-        ckpt_file = os.path.join(fold_dir, "1", "snapshots", "39000.pth")
-        if os.path.exists(ckpt_file):
+        candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
+        if not candidates:
+            candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
+        if candidates:
             existing.append(fold)
-    
+
     if len(existing) == 5:
         print("All 5 fold checkpoints already present. Skipping download.")
         return
-    
+
     print(f"Found checkpoints for folds: {existing}. Downloading missing ones...")
-    
+
     try:
         from huggingface_hub import snapshot_download
         snapshot_download(
@@ -252,46 +238,26 @@ def download_fob_checkpoints(ckpt_dir):
         print("Downloaded from HuggingFace successfully.")
     except Exception as e:
         print(f"HuggingFace download failed: {e}")
-        print("Trying direct download...")
-        
-        # Fallback: try wget from HuggingFace
-        import urllib.request
-        base_url = "https://huggingface.co/PrimeBo1/FoB_SAM/resolve/main"
-        for fold in range(5):
-            if fold in existing:
-                continue
-            fold_name = f"exps_train_on_SABS_FSMIS_FoB/FSMIS_train_SABS_cv{fold}/1/snapshots/39000.pth"
-            url = f"{base_url}/{fold_name}"
-            local_path = os.path.join(ckpt_dir, fold_name)
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            print(f"  Downloading fold {fold} from {url}...")
-            try:
-                urllib.request.urlretrieve(url, local_path)
-                print(f"  Fold {fold}: OK")
-            except Exception as e2:
-                print(f"  Fold {fold}: FAILED ({e2})")
-                
+
     # Extract ZIP if downloaded
     zip_path = os.path.join(ckpt_dir, "exps_train_on_SABS_FSMIS_FoB.zip")
     if not os.path.exists(zip_path):
-        # snapshot_download puts files in nested cache structure, let's find the zip
         zips = glob.glob(os.path.join(ckpt_dir, "**/*.zip"), recursive=True)
         if zips:
             zip_path = zips[0]
-            
+
     if os.path.exists(zip_path):
         print(f"Found zip archive at {zip_path}, extracting...")
         import zipfile
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(ckpt_dir)
         print("Extraction complete.")
-    
-    # Verify using flexible glob search
+
+    # Verify
     for fold in range(5):
         candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
         if not candidates:
             candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
-            
         status = "OK" if candidates else "MISSING"
         found_file = candidates[0] if candidates else "None"
         print(f"  Fold {fold}: {status} ({found_file})")
@@ -309,6 +275,16 @@ def download_sam(sam_path):
     print(f"SAM checkpoint saved to {sam_path}")
 
 
+def load_fob_checkpoint(fold, ckpt_dir):
+    """Load the correct per-fold FoB checkpoint dynamically."""
+    candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
+    if not candidates:
+        candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
+    if candidates:
+        return candidates[0]
+    raise FileNotFoundError(f"No checkpoint found for fold {fold} in {ckpt_dir}")
+
+
 print("\n" + "=" * 70)
 print("Step 2: Download FoB checkpoints")
 print("=" * 70)
@@ -318,281 +294,184 @@ download_sam(SAM_CKPT)
 # ============================================================================
 # CELL 4: Reproduce FoB Baseline (Gate C)
 # ============================================================================
-# Run FoB's EXACT evaluation protocol:
-#   - Per-volume z-score normalization (FoB's datasets.py line 47)
-#   - sabs_CT_normalized data
-#   - Per-fold checkpoint
-#   - TEST_LABEL = [1, 2, 3, 6] (Spleen, RK, LK, Liver)
-#   - Middle-slice support (supp_idx=2, the 3rd volume in fold)
+# Use FoB's OWN TestDataset, SAM wrapper, and test.py logic verbatim.
+# This guarantees identical data loading, normalization, and evaluation.
 # ============================================================================
 
 from models.FoB import FewShotSeg
-from segment_anything import sam_model_registry, SamPredictor
-from scipy.ndimage import binary_erosion
-from scipy.spatial.distance import cdist
+from dataloaders.datasets import TestDataset
+from dataloaders.dataset_specifics import get_label_names, get_folds
+from torch.utils.data import DataLoader
+from SAM import SAM
 
-
-# FoB's fold definitions (from dataset_specifics.py)
-FOLDS = {
-    0: set(range(0, 7)),
-    1: set(range(6, 13)),
-    2: set(range(12, 19)),
-    3: set(range(18, 25)),
-    4: set(range(24, 30)),
-}
-FOLDS[4].update([0])
-
-TEST_LABELS = [1, 2, 3, 6]  # Spleen, RK, LK, Liver
-LABEL_NAMES = {1: "Spleen", 2: "RK", 3: "LK", 6: "Liver"}
-SUPP_IDX = 2  # FoB default
-
-
-def compute_dice(pred, gt):
-    pred = (pred > 0).astype(np.uint8)
-    gt = (gt > 0).astype(np.uint8)
-    inter = np.sum(pred * gt)
-    total = np.sum(pred) + np.sum(gt)
-    if total == 0:
-        return 1.0
-    return 2.0 * inter / total
-
-
-def load_fob_checkpoint(fold, ckpt_dir):
-    """Load the correct per-fold FoB checkpoint dynamically."""
-    candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*/**/*.pth"), recursive=True)
-    if not candidates:
-        candidates = glob.glob(os.path.join(ckpt_dir, f"**/*cv{fold}*.pth"), recursive=True)
-        
-    if candidates:
-        return candidates[0]
-        
-    raise FileNotFoundError(f"No checkpoint found for fold {fold} in {ckpt_dir}")
+TEST_LABELS = [1, 2, 3, 6]
+N_PART = 3
+SUPP_IDX = 2
 
 
 def reproduce_fob_baseline():
-    """Run FoB's exact evaluation and report per-organ Dice."""
-    
-    # Load normalized volumes
-    img_files = sorted(
-        glob.glob(os.path.join(NORMALIZED_DIR, "image_*.nii.gz")),
-        key=lambda x: int(x.split("_")[-1].split(".nii.gz")[0])
-    )
-    print(f"Found {len(img_files)} normalized volumes")
-    
-    # Load SAM
-    sam = sam_model_registry["vit_h"](checkpoint=SAM_CKPT)
-    sam.cuda().eval()
-    predictor = SamPredictor(sam)
-    
-    all_results = []
-    
-    for fold in range(5):
-        fold_vols = sorted(FOLDS[fold])
-        print(f"\n--- Fold {fold} (volumes: {fold_vols}) ---")
-        
-        # Load per-fold checkpoint
-        ckpt_path = load_fob_checkpoint(fold, CKPT_DIR)
+    """Run FoB's exact evaluation protocol using their own code."""
+
+    labels = get_label_names("SABS")
+    data_dir = os.path.dirname(NORMALIZED_DIR)
+
+    class_dice_all = {}
+
+    for eval_fold in range(5):
+        print(f"\n--- Fold {eval_fold} ---")
+
+        ckpt_path = load_fob_checkpoint(eval_fold, CKPT_DIR)
         print(f"  Checkpoint: {ckpt_path}")
-        
+
         class DummyArgs:
             pass
         args = DummyArgs()
         args.dataset = "SABS"
         args.max_points = 10
-        
-        fob = FewShotSeg(args)
-        fob.n_shots = 1
-        fob.n_ways = 1
-        fob.n_queries = 1
-        fob.max_points = 10
-        fob.allocator = None
-        fob.cuda().eval()
-        
-        # Load checkpoint
-        obj = torch.load(ckpt_path, map_location="cpu")
-        if isinstance(obj, dict):
-            for key in ("state_dict", "model", "net", "model_state_dict"):
-                if key in obj and isinstance(obj[key], dict):
-                    obj = obj[key]
-                    break
-        cleaned = {}
-        for k, v in obj.items():
-            nk = k
-            for pref in ("module.", "_orig_mod."):
-                if nk.startswith(pref):
-                    nk = nk[len(pref):]
-            cleaned[nk] = v
-        
-        missing, unexpected = fob.load_state_dict(cleaned, strict=False)
-        model_keys = set(fob.state_dict().keys())
-        matched = [k for k in cleaned if k in model_keys]
-        print(f"  Loaded {len(matched)}/{len(model_keys)} params, missing={len(missing)}, unexpected={len(unexpected)}")
-        
-        # Get test volumes (volumes IN the fold)
-        available_vols = [i for i in fold_vols if i < len(img_files)]
-        if len(available_vols) < 3:
-            print(f"  WARNING: Only {len(available_vols)} volumes in fold {fold}")
-            continue
-        
-        # Support = SUPP_IDX-th volume, Query = the rest
-        support_idx_in_fold = min(SUPP_IDX, len(available_vols) - 1)
-        support_vol_id = available_vols[support_idx_in_fold]
-        query_vol_ids = [v for v in available_vols if v != support_vol_id]
-        
-        # Load support volume (FoB's exact normalization: per-volume z-score)
-        supp_path = img_files[support_vol_id]
-        supp_img_raw = sitk.GetArrayFromImage(sitk.ReadImage(supp_path))  # (Z, H, W)
-        supp_img_norm = (supp_img_raw - supp_img_raw.mean()) / (supp_img_raw.std() + 1e-8)
-        supp_img_3ch = np.stack(3 * [supp_img_norm], axis=1)  # (Z, 3, H, W)
-        
-        supp_lbl_path = supp_path.replace("image_", "label_")
-        supp_lbl = sitk.GetArrayFromImage(sitk.ReadImage(supp_lbl_path))
-        
-        for label_id in TEST_LABELS:
-            label_name = LABEL_NAMES[label_id]
-            
-            # Support: binary mask for this label
-            supp_mask_bin = (supp_lbl == label_id).astype(np.float32)
-            
-            # Find slices with this label
-            supp_has_label = supp_mask_bin.sum(axis=(1, 2)) > 0
-            if supp_has_label.sum() == 0:
-                print(f"  {label_name}: No support slices with label {label_id} in vol {support_vol_id}")
+
+        model = FewShotSeg(args)
+        model.cuda()
+        model.load_state_dict(torch.load(ckpt_path, map_location='cpu'), strict=False)
+        model.eval()
+
+        sam = SAM(sam_pretrained_path=SAM_CKPT)
+
+        data_config = {
+            'data_dir': data_dir,
+            'dataset': 'SABS',
+            'n_shot': 1,
+            'n_way': 1,
+            'n_query': 1,
+            'n_sv': 5000,
+            'max_iter': 3000,
+            'eval_fold': eval_fold,
+            'min_size': 200,
+            'max_slices': 3,
+            'supp_idx': SUPP_IDX,
+        }
+        test_dataset = TestDataset(data_config)
+        test_loader = DataLoader(
+            test_dataset, batch_size=1, shuffle=False,
+            num_workers=0, pin_memory=True, drop_last=False
+        )
+
+        _config = {'dataset': 'SABS', 'n_part': N_PART}
+
+        for label_val, label_name in labels.items():
+            if label_name == 'BG':
                 continue
-            
-            # Middle slice as support (FoB protocol: get_support_index with n_shot=1 -> 50%)
-            labeled_indices = np.where(supp_has_label)[0]
-            mid_idx = labeled_indices[len(labeled_indices) // 2]
-            
-            supp_slice = torch.from_numpy(supp_img_3ch[mid_idx:mid_idx+1]).float()  # (1, 3, H, W)
-            supp_mask_slice = torch.from_numpy(supp_mask_bin[mid_idx:mid_idx+1]).float()  # (1, H, W)
-            
-            fold_dices = []
-            
-            for qvol_id in query_vol_ids:
-                # Load query volume
-                qry_path = img_files[qvol_id]
-                qry_img_raw = sitk.GetArrayFromImage(sitk.ReadImage(qry_path))
-                qry_img_norm = (qry_img_raw - qry_img_raw.mean()) / (qry_img_raw.std() + 1e-8)
-                qry_img_3ch = np.stack(3 * [qry_img_norm], axis=1)
-                
-                qry_lbl_path = qry_path.replace("image_", "label_")
-                qry_lbl = sitk.GetArrayFromImage(sitk.ReadImage(qry_lbl_path))
-                qry_mask_bin = (qry_lbl == label_id).astype(np.float32)
-                
-                # Only evaluate on slices that have this label
-                qry_has_label = qry_mask_bin.sum(axis=(1, 2)) > 0
-                if qry_has_label.sum() == 0:
-                    continue
-                
-                labeled_qry_indices = np.where(qry_has_label)[0]
-                
-                for qslice_idx in labeled_qry_indices:
-                    qry_slice = torch.from_numpy(qry_img_3ch[qslice_idx:qslice_idx+1]).float()
-                    qry_mask_gt = qry_mask_bin[qslice_idx]
-                    
-                    # Build FoB input format
-                    support_images = [[supp_slice.clone().cuda()]]
-                    support_fg_labels = [[supp_mask_slice.clone().cuda()]]
-                    query_images = [qry_slice.clone().cuda()]
-                    query_labels = torch.from_numpy(qry_mask_bin[qslice_idx:qslice_idx+1]).float().cuda()
-                    
-                    try:
-                        with torch.no_grad():
-                            neg_pts, pos_pts = fob(
-                                support_images, support_fg_labels,
-                                query_images, query_labels,
-                                train=False, use_skeleton=False, budget_Np=10
-                            )
-                    except Exception as e:
-                        continue
-                    
-                    # Convert points
-                    if neg_pts is not None and torch.is_tensor(neg_pts):
-                        neg_pts = neg_pts.detach().cpu().numpy().reshape(-1, 2)
-                    else:
-                        neg_pts = np.zeros((0, 2), dtype=np.float32)
-                    
-                    if pos_pts is not None and torch.is_tensor(pos_pts):
-                        pos_pts = pos_pts.detach().cpu().numpy().reshape(-1, 2)
-                    else:
-                        pos_pts = np.zeros((0, 2), dtype=np.float32)
-                    
-                    # SAM prediction
-                    H, W = qry_mask_gt.shape
-                    # SAM uint8 from canonical (before z-score)
-                    sam_slice = qry_img_raw[qslice_idx]
-                    sam_norm = (sam_slice - sam_slice.min()) / (sam_slice.max() - sam_slice.min() + 1e-8) * 255
-                    sam_uint8 = np.stack([sam_norm.astype(np.uint8)] * 3, axis=-1)
-                    
-                    predictor.set_image(sam_uint8)
-                    
-                    all_pts = np.concatenate([pos_pts, neg_pts], axis=0) if len(pos_pts) + len(neg_pts) > 0 else np.zeros((0, 2))
-                    all_lbls = np.concatenate([np.ones(len(pos_pts)), np.zeros(len(neg_pts))]) if len(all_pts) > 0 else np.array([])
-                    
-                    if len(all_pts) == 0:
-                        continue
-                    
-                    # Clip to image bounds
-                    all_pts[:, 0] = np.clip(all_pts[:, 0], 0, W - 1)
-                    all_pts[:, 1] = np.clip(all_pts[:, 1], 0, H - 1)
-                    
-                    masks, scores, _ = predictor.predict(
-                        point_coords=all_pts,
-                        point_labels=all_lbls,
-                        multimask_output=True,
-                    )
-                    pred_mask = masks[0]  # FoB uses index 0
-                    
-                    dice = compute_dice(pred_mask, qry_mask_gt)
-                    fold_dices.append(dice)
-            
-            if fold_dices:
-                mean_dice = np.mean(fold_dices) * 100
-                print(f"  {label_name}: Dice = {mean_dice:.2f}% ({len(fold_dices)} slices)")
-                all_results.append({
-                    "fold": fold,
-                    "organ": label_name,
-                    "label_id": label_id,
-                    "dice": mean_dice,
-                    "n_slices": len(fold_dices),
-                })
-            else:
-                print(f"  {label_name}: No valid slices evaluated")
-    
+            if label_val not in TEST_LABELS:
+                continue
+
+            print(f"  Testing: {label_name} (label={label_val})")
+
+            support_sample = test_dataset.getSupport(label=label_val, all_slices=False, N=N_PART)
+            test_dataset.label = label_val
+
+            support_image = [support_sample['image'][[i]].float().cuda()
+                             for i in range(support_sample['image'].shape[0])]
+            support_fg_mask = [support_sample['label'][[i]].float().cuda()
+                               for i in range(support_sample['image'].shape[0])]
+
+            dice_scores = []
+
+            with torch.no_grad():
+                for vi, sample in enumerate(test_loader):
+                    query_image = [sample['image'][j].float().cuda()
+                                   for j in range(sample['image'].shape[0])]
+                    query_label = sample['label'].long()
+
+                    query_pred = torch.zeros(query_label.shape[-3:])
+                    C_q = sample['image'].shape[1]
+
+                    idx_ = np.linspace(0, C_q, N_PART + 1).astype('int')
+                    for sub_chunk in range(N_PART):
+                        support_image_s = [support_image[sub_chunk]]
+                        support_fg_mask_s = [support_fg_mask[sub_chunk]]
+                        query_image_s = query_image[0][idx_[sub_chunk]:idx_[sub_chunk + 1]]
+                        query_label_s = query_label[0][idx_[sub_chunk]:idx_[sub_chunk + 1]]
+
+                        query_pred_s = []
+                        for j in range(query_image_s.shape[0]):
+                            try:
+                                neg_point, pos_point = model(
+                                    [support_image_s], [support_fg_mask_s],
+                                    [query_image_s[[j]]], query_label_s[[j]], None
+                                )
+                                pred = sam(
+                                    query_image_s[[j]][0], pos_point, neg_point,
+                                    _config, return_logits=False
+                                )
+                                pred = torch.from_numpy(pred).float().cuda().unsqueeze(0).unsqueeze(0)
+                            except Exception as e:
+                                print(f"    Error on slice {j}: {e}")
+                                pred = torch.zeros(1, 1, query_image_s.shape[-2], query_image_s.shape[-1])
+                            query_pred_s.append(pred)
+
+                        query_pred_s = torch.cat(query_pred_s, dim=0).squeeze(1)
+                        query_pred[idx_[sub_chunk]:idx_[sub_chunk + 1]] = query_pred_s.cpu()
+
+                    # Compute Dice for this query volume
+                    query_pred_bin = (query_pred > 0.5).float()
+                    query_label_bin = (query_label.squeeze(0) > 0).float()
+                    inter = (query_pred_bin * query_label_bin).sum()
+                    total = query_pred_bin.sum() + query_label_bin.sum()
+                    dice = (2.0 * inter / (total + 1e-8)).item() if total > 0 else 1.0
+                    dice_scores.append(dice)
+                    print(f"    Vol {vi}: Dice = {dice*100:.2f}%")
+
+            if dice_scores:
+                mean_dice = np.mean(dice_scores)
+                key = f"{label_name}_fold{eval_fold}"
+                class_dice_all[key] = mean_dice
+                print(f"  {label_name} fold {eval_fold}: Mean Dice = {mean_dice*100:.2f}%")
+
     # Summary
     print("\n" + "=" * 70)
     print("GATE C RESULTS: FoB Baseline Reproduction")
     print("=" * 70)
-    print(f"{'Organ':<12} | {'Mean Dice (%)':<15} | {'Published':<12} | {'Match?'}")
-    print("-" * 60)
-    
-    published = {"Spleen": 84.54, "RK": 86.51, "LK": 87.29, "Liver": 86.51}
-    
-    for organ in ["Spleen", "RK", "LK", "Liver"]:
-        organ_results = [r["dice"] for r in all_results if r["organ"] == organ]
-        if organ_results:
-            mean = np.mean(organ_results)
+
+    published = {"SPLEEN": 84.54, "RK": 86.51, "LK": 87.29, "LIVER": 86.51}
+
+    organ_dices = {}
+    for key, dice in class_dice_all.items():
+        organ = key.split("_fold")[0]
+        if organ not in organ_dices:
+            organ_dices[organ] = []
+        organ_dices[organ].append(dice)
+
+    print(f"{'Organ':<12} | {'Our Dice (%)':<15} | {'Published (%)':<15} | {'Gap'}")
+    print("-" * 65)
+
+    for organ in ["SPLEEN", "RK", "LK", "LIVER"]:
+        if organ in organ_dices:
+            mean = np.mean(organ_dices[organ]) * 100
             pub = published.get(organ, 0)
-            match = "OK" if abs(mean - pub) < 10 else "MISMATCH"
-            print(f"{organ:<12} | {mean:>13.2f} | {pub:>10.2f} | {match}")
+            gap = mean - pub
+            print(f"{organ:<12} | {mean:>13.2f} | {pub:>13.2f} | {gap:>+7.2f}")
         else:
-            print(f"{organ:<12} | {'N/A':>13} | {published.get(organ, 0):>10.2f} | MISSING")
-    
-    overall = np.mean([r["dice"] for r in all_results]) if all_results else 0
-    print(f"\n{'OVERALL':<12} | {overall:>13.2f} | {86.21:>10.2f}")
-    
+            pub = published.get(organ, 0)
+            print(f"{organ:<12} | {'N/A':>13} | {pub:>13.2f} | {'N/A':>7}")
+
+    all_vals = []
+    for v in organ_dices.values():
+        all_vals.extend(v)
+    overall = np.mean(all_vals) * 100 if all_vals else 0
+
+    print(f"\n{'OVERALL':<12} | {overall:>13.2f} | {86.21:>13.2f}")
+
     gate_c = overall > 75.0
     print(f"\nGATE C: {'PASSED' if gate_c else 'FAILED'} (threshold: >75%)")
-    
-    # Save results
+
     import csv
+    os.makedirs(os.path.join(REPO_DIR, "results"), exist_ok=True)
     with open(os.path.join(REPO_DIR, "results", "gate_c_results.csv"), "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["fold", "organ", "label_id", "dice", "n_slices"])
-        writer.writeheader()
-        writer.writerows(all_results)
-    
-    return gate_c, all_results
+        writer = csv.writer(f)
+        writer.writerow(["key", "dice"])
+        for key, dice in class_dice_all.items():
+            writer.writerow([key, dice])
+
+    return gate_c, class_dice_all
 
 
 print("\n" + "=" * 70)
@@ -601,7 +480,6 @@ print("=" * 70)
 gate_c_passed, results = reproduce_fob_baseline()
 
 if gate_c_passed:
-    print("\n*** GATE C PASSED! Baseline is valid. Safe to proceed with AdaFoB evaluation. ***")
+    print("\n*** GATE C PASSED! Baseline is valid. ***")
 else:
-    print("\n*** GATE C FAILED. DO NOT proceed with AdaFoB until baseline is fixed. ***")
-    print("Check: (1) sabs_CT_normalized preprocessing, (2) checkpoint loading, (3) z-score normalization")
+    print("\n*** GATE C FAILED. DO NOT proceed until baseline is fixed. ***")
