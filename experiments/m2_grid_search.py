@@ -179,23 +179,19 @@ def main():
     
     Np_list = [0, 1, 2, 4, 6, 8, 10, 12, 16, 20, 24]
     
-    organs = available_organs(volumes, organ_map, 100) # Ensure 100 min pixels
-    # filter to only aorta and gallbladder
-    organs = [o for o in organs if o['class_id'] in organ_map]
+    available_classes = available_organs(volumes, organ_map, 100) # Ensure 100 min pixels
     
     organ_datasets = {8: [], 4: []}
     
     for class_id in organ_map.keys():
         print(f"Sampling episodes for {organ_map[class_id]} (ID {class_id})")
-        cls_organs = [o for o in organs if o['class_id'] == class_id]
         
-        if not cls_organs:
+        if class_id not in available_classes:
             print(f"No organs found for {class_id}")
             continue
             
         for _ in tqdm(range(20)):
-            organ = random.choice(cls_organs)
-            episode = sample_episode(volumes, organ, 100)
+            episode = sample_episode(volumes, class_id, 100)
             base_sample = build_inputs(episode, predictor, norm_fn=make_baseline_norm, rgb_fn=sam_uint8_from_canonical)
             
             # extract features
