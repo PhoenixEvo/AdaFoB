@@ -144,6 +144,7 @@ def preprocess_sabs(raw_dir, out_dir):
     for reindex, img_fid in enumerate(img_files):
         # Find matching label by looking for the same patient ID in the full path
         import re
+        basename = os.path.basename(img_fid)
         pid_match = re.search(r'(?:img|label)(\d+)', img_fid)
         if not pid_match:
             print(f"  WARNING: No patient ID in {img_fid}, skipping")
