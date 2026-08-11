@@ -137,8 +137,7 @@ def preprocess_sabs(raw_dir, out_dir):
     
     SPA_FAC = (512 - 2 * BD_BIAS) / 256  # spacing factor from FoB
     
-    for reindex, img_fid in enumerate(img_files):
-        # Find matching label
+
     # Get all label files
     lbl_files_all = find_all_nii(lbl_dir)
     
