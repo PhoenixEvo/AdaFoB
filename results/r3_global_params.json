@@ -2,7 +2,7 @@
   "scale": 6,
   "a0": 0.3,
   "tau": 0.02,
-  "mean_cv_dice": 0.8600,
-  "baseline_dice": 0.8574,
-  "oracle_dice": 0.8698
+  "mean_cv_dice": 0.8599784006970881,
+  "baseline_dice": 0.8573582606113195,
+  "oracle_dice": 0.8698212359041482
 }
