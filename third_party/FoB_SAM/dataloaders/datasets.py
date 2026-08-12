@@ -25,7 +25,7 @@ class TestDataset(Dataset):
             self.image_dirs = glob.glob(os.path.join(args['data_dir'], 'sabs_CT_normalized/image*'))
 
 
-        self.image_dirs = sorted(self.image_dirs, key=lambda x: int(x.split('_')[-1].split('.nii.gz')[0]))
+        self.image_dirs = sorted(self.image_dirs, key=lambda x: int(x.split('_')[-1].split('.nii')[0]))
 
         # remove test fold!
         self.FOLD = get_folds(args['dataset'])
