@@ -42,11 +42,24 @@ from dataloaders.dataset_specifics import get_label_names, get_folds
 from torch.utils.data import DataLoader
 from segment_anything import sam_model_registry, SamPredictor
 
-# Paths
-NORMALIZED_DIR = "/kaggle/working/sabs_CT_normalized"
-CKPT_DIR = "/kaggle/working/fob_checkpoints"
-SAM_CKPT = "/kaggle/working/sam_vit_h.pth"
+# Auto-detect paths in case user moved them to a Kaggle Dataset
+def find_path(target_name, is_file=False):
+    # Check working dir first
+    working_path = os.path.join("/kaggle/working", target_name)
+    if os.path.exists(working_path): return working_path
+    
+    # Search in Kaggle inputs (attached datasets)
+    search_pattern = f"/kaggle/input/**/{target_name}"
+    candidates = glob.glob(search_pattern, recursive=True)
+    if candidates: return candidates[0]
+    
+    return working_path # Fallback to default
+
+NORMALIZED_DIR = find_path("sabs_CT_normalized")
+CKPT_DIR = find_path("fob_checkpoints")
+SAM_CKPT = find_path("sam_vit_h.pth", is_file=True)
 GLOBAL_PARAMS_PATH = os.path.join(REPO_DIR, "results", "r3_global_params.json")
+
 
 TEST_LABELS = [1, 2, 3, 6]  # Spleen, RK, LK, Liver
 N_PART = 3   # number of support slices / query chunks
@@ -322,10 +335,4 @@ def evaluate_adafob_matrix():
 
 
 if __name__ == "__main__":
-    # If the user restarted the Kaggle session, the working directory is empty.
-    # We can automatically trigger the Gate C setup steps by simply importing it.
-    # Gate C's evaluation is wrapped in __main__, so it will safely skip the 30-min evaluation.
-    import experiments.gate_c_reproduce_fob
-    
     evaluate_adafob_matrix()
-
