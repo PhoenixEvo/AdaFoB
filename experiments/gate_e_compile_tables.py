@@ -67,4 +67,6 @@ def compile_table(csv_pattern):
             print(f"{name:<40} | {mean_d:>6.2f} ± {std_d:>5.2f} | {mean_h:>6.2f} ± {std_h:>5.2f} | {pval_str}")
 
 if __name__ == "__main__":
-    compile_table("results/gate_d_results*.csv")
+    import os
+    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    compile_table(os.path.join(repo_dir, "results", "gate_d_results*.csv"))
