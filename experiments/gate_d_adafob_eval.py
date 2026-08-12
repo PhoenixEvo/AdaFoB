@@ -102,9 +102,19 @@ def compute_volume_hd95(pred, gt, spacing):
     except RuntimeError:
         return 100.0
 
+import argparse
+
 def evaluate_adafob_matrix():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gpu', type=str, default='0', help='GPU ID to use')
+    parser.add_argument('--organs', type=int, nargs='+', default=[1, 2, 3, 6], help='Organ IDs to evaluate')
+    args_cmd = parser.parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = args_cmd.gpu
+    target_organs = args_cmd.organs
+
     print("\n" + "=" * 70)
-    print("GATE D: Full AdaFoB Matrix Evaluation (3D Volume)")
+    print(f"GATE D: Full AdaFoB Matrix Evaluation (3D Volume) on GPU {args_cmd.gpu}, Organs {target_organs}")
     print("=" * 70)
 
     # Load global params if available
@@ -150,7 +160,7 @@ def evaluate_adafob_matrix():
         )
 
         for label_val, label_name in labels.items():
-            if label_name == 'BG' or label_val not in TEST_LABELS:
+            if label_name == 'BG' or label_val not in target_organs:
                 continue
 
             print(f"  Testing: {label_name} (label={label_val})")
@@ -330,8 +340,9 @@ def evaluate_adafob_matrix():
     import pandas as pd
     df = pd.DataFrame(results_data)
     os.makedirs(os.path.join(REPO_DIR, "results"), exist_ok=True)
-    df.to_csv(os.path.join(REPO_DIR, "results", "gate_d_results.csv"), index=False)
-    print("\nResults saved to results/gate_d_results.csv")
+    out_csv = os.path.join(REPO_DIR, "results", f"gate_d_results_gpu{args_cmd.gpu}.csv")
+    df.to_csv(out_csv, index=False)
+    print(f"\nResults saved to {out_csv}")
 
 
 if __name__ == "__main__":

@@ -9,12 +9,17 @@ def pval_to_stars(p):
     if p < 0.05: return "*"
     return "ns"
 
-def compile_table(csv_path):
-    if not os.path.exists(csv_path):
-        print(f"Error: {csv_path} not found.")
+import glob
+
+def compile_table(csv_pattern):
+    csv_files = glob.glob(csv_pattern)
+    if not csv_files:
+        print(f"Error: No files matching {csv_pattern} found.")
         return
 
-    df = pd.read_csv(csv_path)
+    dfs = [pd.read_csv(f) for f in csv_files]
+    df = pd.concat(dfs, ignore_index=True)
+
     
     print(f"\n{'='*80}")
     print(f"                       GATE E: 3D VOLUME ABLATION TABLE")
@@ -62,4 +67,4 @@ def compile_table(csv_path):
             print(f"{name:<40} | {mean_d:>6.2f} ± {std_d:>5.2f} | {mean_h:>6.2f} ± {std_h:>5.2f} | {pval_str}")
 
 if __name__ == "__main__":
-    compile_table("results/gate_d_results.csv")
+    compile_table("results/gate_d_results*.csv")
