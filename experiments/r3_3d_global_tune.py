@@ -37,6 +37,10 @@ def evaluate_and_cache(gpu=0):
     fob.eval()
     
     organs_to_run = [1, 2, 3, 6]  # Spleen, RK, LK, Liver
+    if gpu == 0:
+        organs_to_run = [1, 2]
+    elif gpu == 1:
+        organs_to_run = [3, 6]
     
     cache_data = []
     
@@ -148,19 +152,27 @@ def evaluate_and_cache(gpu=0):
                     
     # Save cache
     os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
-    with open(os.path.join(_ROOT, "results", "3d_tuning_cache.json"), "w") as f:
+    out_file = os.path.join(_ROOT, "results", f"3d_tuning_cache_gpu{gpu}.json")
+    with open(out_file, "w") as f:
         json.dump(cache_data, f)
-    print("Cached saved to results/3d_tuning_cache.json")
+    print(f"Cached saved to {out_file}")
 
 
 def grid_search():
-    cache_path = os.path.join(_ROOT, "results", "3d_tuning_cache.json")
-    if not os.path.exists(cache_path):
-        print("Cache not found. Please run evaluate_and_cache first.")
+    cache_path_0 = os.path.join(_ROOT, "results", "3d_tuning_cache_gpu0.json")
+    cache_path_1 = os.path.join(_ROOT, "results", "3d_tuning_cache_gpu1.json")
+    
+    cache_data = []
+    for p in [cache_path_0, cache_path_1]:
+        if os.path.exists(p):
+            with open(p, "r") as f:
+                cache_data.extend(json.load(f))
+        else:
+            print(f"Warning: Cache file {p} not found!")
+            
+    if not cache_data:
+        print("No cache data found. Please run evaluate_and_cache first.")
         return
-        
-    with open(cache_path, "r") as f:
-        cache_data = json.load(f)
         
     # We want to tune on Fold 0 train set, and apply to all folds?
     # Or tune on Fold 0 training, evaluate on Fold 0 test?
@@ -227,9 +239,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", action="store_true", help="Run the SAM evaluations and cache I, U per slice")
     parser.add_argument("--search", action="store_true", help="Run the grid search over the cache")
+    parser.add_argument("--gpu", type=int, default=0, help="GPU ID (0 or 1)")
     args = parser.parse_args()
     
     if args.cache:
-        evaluate_and_cache(0)
+        evaluate_and_cache(args.gpu)
     if args.search:
         grid_search()
