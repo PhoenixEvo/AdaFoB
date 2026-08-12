@@ -67,6 +67,26 @@ def compile_table(csv_pattern):
             print(f"{name:<40} | {mean_d:>6.2f} ± {std_d:>5.2f} | {mean_h:>6.2f} ± {std_h:>5.2f} | {pval_str}")
 
 if __name__ == "__main__":
-    import os
+    import os, glob
     repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    compile_table(os.path.join(repo_dir, "results", "gate_d_results*.csv"))
+    
+    # 1. Try local results folder first
+    local_pattern = os.path.join(repo_dir, "results", "gate_d_results*.csv")
+    csv_files = glob.glob(local_pattern)
+    
+    # 2. Try Kaggle input folders (if user mounted the output as a dataset)
+    if not csv_files:
+        kaggle_pattern = "/kaggle/input/**/gate_d_results*.csv"
+        csv_files = glob.glob(kaggle_pattern, recursive=True)
+        
+    if csv_files:
+        print(f"Found CSV files: {csv_files}")
+        # We pass the list of files to compile_table, so let's adjust compile_table to take a list
+        dfs = [pd.read_csv(f) for f in csv_files]
+        df = pd.concat(dfs, ignore_index=True)
+        # Create a temporary unified CSV to pass to the original compile_table logic
+        tmp_path = "/tmp/unified_gate_d.csv"
+        df.to_csv(tmp_path, index=False)
+        compile_table(tmp_path)
+    else:
+        print("Error: Could not find any gate_d_results*.csv files in /kaggle/working or /kaggle/input")
