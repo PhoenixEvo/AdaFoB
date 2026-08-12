@@ -26,6 +26,14 @@ class TestDataset(Dataset):
 
 
         self.image_dirs = sorted(self.image_dirs, key=lambda x: int(x.split('_')[-1].split('.nii.gz')[0]))
+        
+        # Filter out images without labels
+        valid_dirs = []
+        for img_path in self.image_dirs:
+            lbl_path = img_path.split('image_')[0] + 'label_' + img_path.split('image_')[-1]
+            if os.path.exists(lbl_path):
+                valid_dirs.append(img_path)
+        self.image_dirs = valid_dirs
 
         # remove test fold!
         self.FOLD = get_folds(args['dataset'])
