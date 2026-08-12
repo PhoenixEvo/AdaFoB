@@ -322,4 +322,10 @@ def evaluate_adafob_matrix():
 
 
 if __name__ == "__main__":
+    # If the user restarted the Kaggle session, the working directory is empty.
+    # We can automatically trigger the Gate C setup steps by simply importing it.
+    # Gate C's evaluation is wrapped in __main__, so it will safely skip the 30-min evaluation.
+    import experiments.gate_c_reproduce_fob
+    
     evaluate_adafob_matrix()
+
