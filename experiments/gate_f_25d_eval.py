@@ -233,6 +233,12 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                     C_q = sample['image'].shape[1]
 
                     idx_ = np.linspace(0, C_q, N_PART + 1).astype('int')
+                    
+                    # ── Identify Chunk Boundaries (Q2) ────────────────────
+                    is_boundary = np.zeros(C_q, dtype=bool)
+                    boundary_indices = idx_[1:-1]
+                    for b_idx in boundary_indices:
+                        is_boundary[max(0, b_idx - 2) : min(C_q, b_idx + 3)] = True
 
                     # ── Accumulators ──────────────────────────────────────
                     # Method 1: FoB Baseline (Np=10, no propagation)
@@ -343,11 +349,19 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                     fwd_masks_ada = {}
                     fwd_logits_fob_store = {}
                     fwd_logits_ada_store = {}
+                    
+                    fwd_prev_area_fob = 0
+                    fwd_prev_area_ada = 0
 
                     for sd in slice_data:
                         predictor.set_image(sd['img_t'])
                         z = sd['global_z']
                         budget_np = min(VALID_NPS, key=lambda x: abs(x - sd['budget']))
+                        
+                        # Reset Condition 1: Confidence Drop (No positive points found)
+                        if len(sd['pos']) == 0:
+                            fwd_logits_fob = None
+                            fwd_logits_ada = None
 
                         # Method 3: FoB + Prop (Np=10)
                         mask_fob, logits_fob = query_sam_with_propagation(
@@ -355,8 +369,15 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                             fwd_logits_fob, alpha, sd['img_t'].shape
                         )
                         fwd_masks_fob[z] = mask_fob
-                        fwd_logits_fob = logits_fob
                         fwd_logits_fob_store[z] = logits_fob
+                        
+                        # Reset Condition 2: Area Drop (FoB)
+                        current_area_fob = np.sum(mask_fob)
+                        if fwd_prev_area_fob > 0 and current_area_fob < 0.1 * fwd_prev_area_fob:
+                            fwd_logits_fob = None
+                        else:
+                            fwd_logits_fob = logits_fob
+                        fwd_prev_area_fob = current_area_fob
 
                         # Method 4: AdaFoB-2.5D (adaptive + prop)
                         mask_ada, logits_ada = query_sam_with_propagation(
@@ -364,33 +385,59 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                             fwd_logits_ada, alpha, sd['img_t'].shape
                         )
                         fwd_masks_ada[z] = mask_ada
-                        fwd_logits_ada = logits_ada
                         fwd_logits_ada_store[z] = logits_ada
+                        
+                        # Reset Condition 2: Area Drop (AdaFoB)
+                        current_area_ada = np.sum(mask_ada)
+                        if fwd_prev_area_ada > 0 and current_area_ada < 0.1 * fwd_prev_area_ada:
+                            fwd_logits_ada = None
+                        else:
+                            fwd_logits_ada = logits_ada
+                        fwd_prev_area_ada = current_area_ada
 
                     # ── Backward pass (z=Z-1 → z=0) ──────────────────────
                     bwd_logits_fob = None
                     bwd_logits_ada = None
                     bwd_masks_fob = {}
                     bwd_masks_ada = {}
+                    
+                    bwd_prev_area_fob = 0
+                    bwd_prev_area_ada = 0
 
                     for sd in reversed(slice_data):
                         predictor.set_image(sd['img_t'])
                         z = sd['global_z']
                         budget_np = min(VALID_NPS, key=lambda x: abs(x - sd['budget']))
+                        
+                        if len(sd['pos']) == 0:
+                            bwd_logits_fob = None
+                            bwd_logits_ada = None
 
                         mask_fob, logits_fob = query_sam_with_propagation(
                             predictor, sd['pos'], sd['uni_neg'][:10],
                             bwd_logits_fob, alpha, sd['img_t'].shape
                         )
                         bwd_masks_fob[z] = mask_fob
-                        bwd_logits_fob = logits_fob
+                        
+                        current_area_fob = np.sum(mask_fob)
+                        if bwd_prev_area_fob > 0 and current_area_fob < 0.1 * bwd_prev_area_fob:
+                            bwd_logits_fob = None
+                        else:
+                            bwd_logits_fob = logits_fob
+                        bwd_prev_area_fob = current_area_fob
 
                         mask_ada, logits_ada = query_sam_with_propagation(
                             predictor, sd['pos'], sd['ada_neg'][:budget_np],
                             bwd_logits_ada, alpha, sd['img_t'].shape
                         )
                         bwd_masks_ada[z] = mask_ada
-                        bwd_logits_ada = logits_ada
+                        
+                        current_area_ada = np.sum(mask_ada)
+                        if bwd_prev_area_ada > 0 and current_area_ada < 0.1 * bwd_prev_area_ada:
+                            bwd_logits_ada = None
+                        else:
+                            bwd_logits_ada = logits_ada
+                        bwd_prev_area_ada = current_area_ada
 
                     # ── Merge forward + backward ──────────────────────────
                     for sd in slice_data:
@@ -410,6 +457,13 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
 
                     # ── Compute 3D metrics ────────────────────────────────
                     gt = (query_label.squeeze(0).cpu().numpy() > 0).astype(np.uint8)
+                    
+                    # Full Volume Masks
+                    gt_core = gt[~is_boundary]
+                    pred_base_core = pred_baseline[~is_boundary]
+                    pred_a2d_core = pred_adafob_2d[~is_boundary]
+                    pred_fobp_core = pred_fob_prop[~is_boundary]
+                    pred_a25d_core = pred_adafob_25d[~is_boundary]
 
                     row = {
                         "fold": eval_fold,
@@ -422,15 +476,19 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                         # Method 1: FoB Baseline
                         "dice_baseline": compute_volume_dice(pred_baseline, gt),
                         "hd95_baseline": compute_volume_hd95(pred_baseline, gt, spacing),
+                        "dice_base_core": compute_volume_dice(pred_base_core, gt_core),
                         # Method 2: AdaFoB 2D
                         "dice_adafob_2d": compute_volume_dice(pred_adafob_2d, gt),
                         "hd95_adafob_2d": compute_volume_hd95(pred_adafob_2d, gt, spacing),
+                        "dice_a2d_core": compute_volume_dice(pred_a2d_core, gt_core),
                         # Method 3: FoB + Mask Prop
                         "dice_fob_prop": compute_volume_dice(pred_fob_prop, gt),
                         "hd95_fob_prop": compute_volume_hd95(pred_fob_prop, gt, spacing),
+                        "dice_fobp_core": compute_volume_dice(pred_fobp_core, gt_core),
                         # Method 4: AdaFoB-2.5D
                         "dice_adafob_25d": compute_volume_dice(pred_adafob_25d, gt),
                         "hd95_adafob_25d": compute_volume_hd95(pred_adafob_25d, gt, spacing),
+                        "dice_a25d_core": compute_volume_dice(pred_a25d_core, gt_core),
                     }
 
                     results_data.append(row)

@@ -474,14 +474,12 @@ def reproduce_fob_baseline():
     return gate_c, class_dice_all
 
 
-if __name__ == "__main__":
-    print("\n" + "=" * 70)
-    print("Step 3: Reproduce FoB Baseline (GATE C)")
-    print("=" * 70)
-    gate_c_passed, results = reproduce_fob_baseline()
+print("\n" + "=" * 70)
+print("Step 3: Reproduce FoB Baseline (GATE C)")
+print("=" * 70)
+gate_c_passed, results = reproduce_fob_baseline()
 
-    if gate_c_passed:
-        print("\n*** GATE C PASSED! Baseline is valid. ***")
-    else:
-        print("\n*** GATE C FAILED. DO NOT proceed until baseline is fixed. ***")
-
+if gate_c_passed:
+    print("\n*** GATE C PASSED! Baseline is valid. ***")
+else:
+    print("\n*** GATE C FAILED. DO NOT proceed until baseline is fixed. ***")
