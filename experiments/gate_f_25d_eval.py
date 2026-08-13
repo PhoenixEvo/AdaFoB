@@ -400,6 +400,8 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                     bwd_logits_ada = None
                     bwd_masks_fob = {}
                     bwd_masks_ada = {}
+                    bwd_logits_fob_store = {}
+                    bwd_logits_ada_store = {}
                     
                     bwd_prev_area_fob = 0
                     bwd_prev_area_ada = 0
@@ -418,6 +420,7 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                             bwd_logits_fob, alpha, sd['img_t'].shape
                         )
                         bwd_masks_fob[z] = mask_fob
+                        bwd_logits_fob_store[z] = logits_fob
                         
                         current_area_fob = np.sum(mask_fob)
                         if bwd_prev_area_fob > 0 and current_area_fob < 0.1 * bwd_prev_area_fob:
@@ -431,6 +434,7 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                             bwd_logits_ada, alpha, sd['img_t'].shape
                         )
                         bwd_masks_ada[z] = mask_ada
+                        bwd_logits_ada_store[z] = logits_ada
                         
                         current_area_ada = np.sum(mask_ada)
                         if bwd_prev_area_ada > 0 and current_area_ada < 0.1 * bwd_prev_area_ada:
@@ -442,18 +446,33 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                     # ── Merge forward + backward ──────────────────────────
                     for sd in slice_data:
                         z = sd['global_z']
-                        # Merge by averaging logits, then threshold
-                        fwd_l = fwd_logits_fob_store.get(z)
-                        bwd_l_fob = None  # We don't store bwd logits separately
-                        # Simple merge: union of forward and backward masks
-                        fwd_m = fwd_masks_fob.get(z, np.zeros((256, 256), dtype=np.uint8))
-                        bwd_m = bwd_masks_fob.get(z, np.zeros((256, 256), dtype=np.uint8))
-                        # Use intersection for higher precision
-                        pred_fob_prop[z] = (fwd_m & bwd_m).astype(np.uint8)
+                        
+                        def merge_logits(f_log, b_log):
+                            if f_log is not None and b_log is not None:
+                                return (f_log + b_log) / 2.0
+                            elif f_log is not None:
+                                return f_log
+                            elif b_log is not None:
+                                return b_log
+                            return None
 
-                        fwd_a = fwd_masks_ada.get(z, np.zeros((256, 256), dtype=np.uint8))
-                        bwd_a = bwd_masks_ada.get(z, np.zeros((256, 256), dtype=np.uint8))
-                        pred_adafob_25d[z] = (fwd_a & bwd_a).astype(np.uint8)
+                        # Method 3: FoB + Prop Merge
+                        m_fob = np.zeros((256, 256), dtype=np.uint8)
+                        f_l_fob = fwd_logits_fob_store.get(z)
+                        b_l_fob = bwd_logits_fob_store.get(z)
+                        m_l_fob = merge_logits(f_l_fob, b_l_fob)
+                        if m_l_fob is not None:
+                            m_fob = (m_l_fob[0] > 0.0).astype(np.uint8)
+                        pred_fob_prop[z] = m_fob
+
+                        # Method 4: AdaFoB-2.5D Merge
+                        m_ada = np.zeros((256, 256), dtype=np.uint8)
+                        f_l_ada = fwd_logits_ada_store.get(z)
+                        b_l_ada = bwd_logits_ada_store.get(z)
+                        m_l_ada = merge_logits(f_l_ada, b_l_ada)
+                        if m_l_ada is not None:
+                            m_ada = (m_l_ada[0] > 0.0).astype(np.uint8)
+                        pred_adafob_25d[z] = m_ada
 
                     # ── Compute 3D metrics ────────────────────────────────
                     gt = (query_label.squeeze(0).cpu().numpy() > 0).astype(np.uint8)
