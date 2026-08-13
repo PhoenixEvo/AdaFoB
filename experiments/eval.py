@@ -416,7 +416,8 @@ def _as_points(p):
 
 
 def predict_sam_from_points(predictor, pos_pts, neg_pts, H=256, W=256,
-                            mask_select="fixed0", oob_mode="drop", verbose=False):
+                            mask_select="fixed0", oob_mode="drop", verbose=False,
+                            mask_input=None, return_logits=False):
     """Predict with an image already registered via predictor.set_image().
 
     Prompts are sanitised first.  Diagnostics showed the AdaFoB head emitting 85
@@ -426,21 +427,31 @@ def predict_sam_from_points(predictor, pos_pts, neg_pts, H=256, W=256,
     mask_select='fixed0'      FoB parity (SAM.py hardcodes index 0)
     mask_select='best_score'  SAM's own predicted-IoU argmax (report separately;
                               do NOT mix with fixed0 in one table)
+
+    mask_input:     Optional np.ndarray of shape (1, 256, 256) — low-res logits
+                    from a previous SAM prediction (e.g. adjacent slice).
+                    SAM adds this to image embeddings as a spatial prior.
+    return_logits:  If True, also return low_res_logits for propagation to next slice.
     """
     pos, ps = sanitize_prompts(pos_pts, H, W, mode=oob_mode, name="pos", verbose=verbose)
     neg, ns = sanitize_prompts(neg_pts, H, W, mode=oob_mode, name="neg", verbose=verbose)
     if len(pos) == 0 and len(neg) == 0:
+        if return_logits:
+            return None, {"pos": ps, "neg": ns, "mask_idx": None}, None
         return None, {"pos": ps, "neg": ns, "mask_idx": None}
 
     all_pts = np.concatenate([pos, neg], axis=0)
     all_lbls = np.concatenate([np.ones(len(pos)), np.zeros(len(neg))], axis=0)
 
-    masks, scores, _ = predictor.predict(
+    masks, scores, low_res_logits = predictor.predict(
         point_coords=all_pts,
         point_labels=all_lbls,
         multimask_output=True,
+        mask_input=mask_input,
     )
     idx = 0 if mask_select == "fixed0" else int(np.argmax(scores))
+    if return_logits:
+        return masks[idx], {"pos": ps, "neg": ns, "mask_idx": idx}, low_res_logits[idx:idx+1]
     return masks[idx], {"pos": ps, "neg": ns, "mask_idx": idx}
 
 
