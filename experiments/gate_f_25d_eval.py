@@ -446,6 +446,7 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                     # ── Merge forward + backward ──────────────────────────
                     for sd in slice_data:
                         z = sd['global_z']
+                        H_img, W_img = sd['img_t'].shape[:2]
                         
                         def merge_logits(f_log, b_log):
                             if f_log is not None and b_log is not None:
@@ -457,21 +458,23 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
                             return None
 
                         # Method 3: FoB + Prop Merge
-                        m_fob = np.zeros((256, 256), dtype=np.uint8)
+                        m_fob = np.zeros((H_img, W_img), dtype=np.uint8)
                         f_l_fob = fwd_logits_fob_store.get(z)
                         b_l_fob = bwd_logits_fob_store.get(z)
                         m_l_fob = merge_logits(f_l_fob, b_l_fob)
                         if m_l_fob is not None:
-                            m_fob = (m_l_fob[0] > 0.0).astype(np.uint8)
+                            import cv2
+                            m_fob = (cv2.resize(m_l_fob[0].astype(np.float32), (W_img, H_img)) > 0.0).astype(np.uint8)
                         pred_fob_prop[z] = m_fob
 
                         # Method 4: AdaFoB-2.5D Merge
-                        m_ada = np.zeros((256, 256), dtype=np.uint8)
+                        m_ada = np.zeros((H_img, W_img), dtype=np.uint8)
                         f_l_ada = fwd_logits_ada_store.get(z)
                         b_l_ada = bwd_logits_ada_store.get(z)
                         m_l_ada = merge_logits(f_l_ada, b_l_ada)
                         if m_l_ada is not None:
-                            m_ada = (m_l_ada[0] > 0.0).astype(np.uint8)
+                            import cv2
+                            m_ada = (cv2.resize(m_l_ada[0].astype(np.float32), (W_img, H_img)) > 0.0).astype(np.uint8)
                         pred_adafob_25d[z] = m_ada
 
                     # ── Compute 3D metrics ────────────────────────────────
