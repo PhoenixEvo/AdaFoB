@@ -47,12 +47,12 @@ else:
 !cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 0 --gpu 0 --epochs 60 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 \
+   --batch_size 2 --grad_accum 8 --rank 4 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth & \
  cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 1 --gpu 1 --epochs 60 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 \
+   --batch_size 2 --grad_accum 8 --rank 4 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth & \
  wait
 """
@@ -64,12 +64,12 @@ else:
 !cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 2 --gpu 0 --epochs 60 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 \
+   --batch_size 2 --grad_accum 8 --rank 4 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth & \
  cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 3 --gpu 1 --epochs 60 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 \
+   --batch_size 2 --grad_accum 8 --rank 4 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth & \
  wait
 """
@@ -81,7 +81,7 @@ else:
 !cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 4 --gpu 0 --epochs 60 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 \
+   --batch_size 2 --grad_accum 8 --rank 4 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth
 """
 
@@ -154,6 +154,6 @@ print("=" * 80)
 !cd /kaggle/working/AdaFoB && \
  python experiments/train_lora.py \
    --fold 0 --gpu 0 --epochs 2 --lr 5e-4 \
-   --batch_size 4 --grad_accum 4 --rank 4 --val_every 1 \
+   --batch_size 2 --grad_accum 8 --rank 4 --val_every 1 \
    --sam_ckpt /kaggle/working/checkpoints/sam_vit_b_01ec64.pth
 """
