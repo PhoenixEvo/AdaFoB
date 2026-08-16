@@ -69,11 +69,9 @@ def get_folds():
     return FOLD
 
 
-# All 13 SABS organ labels for maximum training diversity
+# Train only on the 4 target organs to speed up training and focus the model
 ALL_ORGANS = {
-    1: "SPLEEN", 2: "RK", 3: "LK", 4: "GALLBLADDER", 5: "ESOPHAGUS",
-    6: "LIVER", 7: "STOMACH", 8: "AORTA", 9: "IVC", 10: "PS_VEIN",
-    11: "PANCREAS", 12: "AG_R", 13: "AG_L",
+    1: "SPLEEN", 2: "RK", 3: "LK", 6: "LIVER",
 }
 
 
@@ -197,24 +195,10 @@ class SABSLoRADataset(Dataset):
         else:
             pos_points = np.zeros((0, 2), dtype=np.float32)
 
-        # Sample background points (preferring near-boundary for harder training)
+        # Sample background points
         if n_neg > 0 and len(bg_coords) > 0:
-            if self.is_train and random.random() < 0.7:
-                # 70% chance: sample near the boundary for harder training
-                from scipy.ndimage import distance_transform_edt
-                dist = distance_transform_edt(binary_mask == 0)
-                # Prefer points close to foreground (distance 5-30 pixels)
-                near_boundary = (dist > 2) & (dist < 30)
-                near_coords = np.argwhere(near_boundary)
-                if len(near_coords) >= n_neg:
-                    bg_idx = np.random.choice(len(near_coords), n_neg, replace=False)
-                    neg_points = near_coords[bg_idx]
-                else:
-                    bg_idx = np.random.choice(len(bg_coords), n_neg, replace=n_neg > len(bg_coords))
-                    neg_points = bg_coords[bg_idx]
-            else:
-                bg_idx = np.random.choice(len(bg_coords), n_neg, replace=n_neg > len(bg_coords))
-                neg_points = bg_coords[bg_idx]
+            bg_idx = np.random.choice(len(bg_coords), n_neg, replace=n_neg > len(bg_coords))
+            neg_points = bg_coords[bg_idx]
         else:
             neg_points = np.zeros((0, 2), dtype=np.float32)
 
