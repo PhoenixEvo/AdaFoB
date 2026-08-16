@@ -475,6 +475,15 @@ def main():
                         help='Path to data directory containing sabs_CT_normalized/')
     args = parser.parse_args()
 
+    # FORCE OVERRIDE to prevent Kaggle T4 OOM (ignores old notebook cell args)
+    if args.batch_size > 1:
+        print("\n[WARNING] Forcing batch_size=1 and grad_accum=16 to prevent CUDA OOM on Kaggle T4!")
+        args.batch_size = 1
+        args.grad_accum = 16
+    
+    if args.epochs > 60:
+        args.epochs = 60
+
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
