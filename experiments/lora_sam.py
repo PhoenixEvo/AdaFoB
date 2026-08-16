@@ -221,7 +221,7 @@ class LoRA_Sam(nn.Module):
         # Also collect LoRA module parameters not in A/B lists
         for layer in self.lora_layers:
             for name, param in layer.named_parameters():
-                if param.requires_grad and param not in lora_params:
+                if param.requires_grad:
                     lora_params.append(param)
 
         # Deduplicate
