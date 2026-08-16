@@ -153,7 +153,7 @@ def query_sam_with_propagation(predictor, pts_pos, pts_neg, prev_logits, alpha,
         return np.zeros((H, W), dtype=np.uint8), None
 
 
-def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
+def evaluate_25d(gpu=0, target_organs=None, alpha=0.5, target_fold=None):
     """Main evaluation loop with 2.5D mask propagation."""
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
 
@@ -176,7 +176,8 @@ def evaluate_25d(gpu=0, target_organs=None, alpha=0.5):
 
     results_data = []
 
-    for eval_fold in range(5):
+    fold_list = range(5) if target_fold is None else [target_fold]
+    for eval_fold in fold_list:
         print(f"\n{'='*70}")
         print(f"GATE F: Fold {eval_fold} (GPU {gpu}, alpha={alpha})")
         print(f"{'='*70}")
@@ -559,6 +560,8 @@ if __name__ == "__main__":
                         help='Organ IDs (default: split by GPU)')
     parser.add_argument('--alpha', type=float, default=0.5,
                         help='Decay factor for mask propagation logits')
+    parser.add_argument('--fold', type=int, default=None,
+                        help='Specific fold to run (0-4). Runs all if None.')
     args = parser.parse_args()
 
     gpu_id = int(args.gpu)
@@ -570,4 +573,4 @@ if __name__ == "__main__":
     else:
         organs = args.organs
 
-    evaluate_25d(gpu=gpu_id, target_organs=organs, alpha=args.alpha)
+    evaluate_25d(gpu=gpu_id, target_organs=organs, alpha=args.alpha, target_fold=args.fold)
