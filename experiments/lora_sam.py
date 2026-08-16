@@ -160,12 +160,14 @@ class LoRA_Sam(nn.Module):
         Returns:
             List of dicts with 'masks', 'iou_predictions', 'low_res_logits'.
         """
-        outputs = []
-        for inp in batched_input:
-            image = inp['image'].unsqueeze(0)  # (1, 3, H, W)
+        # Batch images for parallel image encoder processing (massive speedup)
+        images = torch.stack([inp['image'] for inp in batched_input], dim=0)  # (B, 3, H, W)
+        image_embeddings = self.sam.image_encoder(images)  # (B, 256, 64, 64)
 
-            # Image embedding (through LoRA-adapted encoder)
-            image_embedding = self.sam.image_encoder(image)
+        outputs = []
+        for i, inp in enumerate(batched_input):
+            # Extract corresponding embedding for the mask decoder
+            image_embedding = image_embeddings[i].unsqueeze(0)  # (1, 256, 64, 64)
 
             # Prompt encoding
             points = (inp['point_coords'].unsqueeze(0), inp['point_labels'].unsqueeze(0))

@@ -380,41 +380,43 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device, gra
     optimizer.zero_grad()
 
     for step, batch in enumerate(dataloader):
-        # batch is a list of dicts (from collate_fn)
+        # Prepare batched inputs
+        batched_input = []
+        mask_gts = []
         for sample in batch:
-            image = sample['image'].to(device)
-            mask_gt = sample['mask'].to(device)
-            point_coords = sample['point_coords'].to(device)
-            point_labels = sample['point_labels'].to(device)
+            batched_input.append({
+                'image': sample['image'].to(device),
+                'point_coords': sample['point_coords'].to(device),
+                'point_labels': sample['point_labels'].to(device),
+                'original_size': sample['original_size'],
+            })
+            mask_gts.append(sample['mask'].to(device))
 
-            with autocast(dtype=torch.float16):
-                # Forward through LoRA-SAM
-                batched_input = [{
-                    'image': image,
-                    'point_coords': point_coords,
-                    'point_labels': point_labels,
-                    'original_size': sample['original_size'],
-                }]
-                outputs = model(batched_input, multimask_output=False)
+        with autocast(dtype=torch.float16):
+            # Forward pass (image encoder is batched inside model)
+            outputs = model(batched_input, multimask_output=False)
 
-                # Get best mask (index 0 for single-mask output)
-                pred_logits = outputs[0]['masks']  # (1, 1024, 1024)
-                pred_logits = pred_logits.unsqueeze(0)  # (1, 1, 1024, 1024)
-                mask_gt_batch = mask_gt.unsqueeze(0)  # (1, 1, 1024, 1024)
+            # Accumulate loss over the batch
+            loss = 0
+            dice_sum = 0
+            for i, out in enumerate(outputs):
+                pred_logits = out['masks'].unsqueeze(0)  # (1, 1, 1024, 1024)
+                target = mask_gts[i].unsqueeze(0)        # (1, 1, 1024, 1024)
+                loss = loss + criterion(pred_logits, target)
+                
+                with torch.no_grad():
+                    pred_binary = (torch.sigmoid(pred_logits) > 0.5).float()
+                    inter = (pred_binary * target).sum()
+                    dice = (2 * inter + 1e-5) / (pred_binary.sum() + target.sum() + 1e-5)
+                    dice_sum += dice.item()
 
-                loss = criterion(pred_logits, mask_gt_batch) / grad_accum
+            loss = loss / len(outputs) / grad_accum
 
-            scaler.scale(loss).backward()
+        scaler.scale(loss).backward()
 
-            # Compute Dice for logging
-            with torch.no_grad():
-                pred_binary = (torch.sigmoid(pred_logits) > 0.5).float()
-                inter = (pred_binary * mask_gt_batch).sum()
-                dice = (2 * inter + 1e-5) / (pred_binary.sum() + mask_gt_batch.sum() + 1e-5)
-                running_dice += dice.item()
-
-            running_loss += loss.item() * grad_accum
-            n_batches += 1
+        running_loss += loss.item() * grad_accum * len(outputs)
+        running_dice += dice_sum
+        n_batches += len(outputs)
 
         # Gradient accumulation step
         if (step + 1) % grad_accum == 0 or (step + 1) == len(dataloader):
@@ -440,32 +442,32 @@ def validate(model, dataloader, criterion, device):
     n_batches = 0
 
     for batch in dataloader:
+        batched_input = []
+        mask_gts = []
         for sample in batch:
-            image = sample['image'].to(device)
-            mask_gt = sample['mask'].to(device)
-            point_coords = sample['point_coords'].to(device)
-            point_labels = sample['point_labels'].to(device)
+            batched_input.append({
+                'image': sample['image'].to(device),
+                'point_coords': sample['point_coords'].to(device),
+                'point_labels': sample['point_labels'].to(device),
+                'original_size': sample['original_size'],
+            })
+            mask_gts.append(sample['mask'].to(device))
 
-            with autocast(dtype=torch.float16):
-                batched_input = [{
-                    'image': image,
-                    'point_coords': point_coords,
-                    'point_labels': point_labels,
-                    'original_size': sample['original_size'],
-                }]
-                outputs = model(batched_input, multimask_output=False)
+        with autocast(dtype=torch.float16):
+            outputs = model(batched_input, multimask_output=False)
 
-                pred_logits = outputs[0]['masks'].unsqueeze(0)
-                mask_gt_batch = mask_gt.unsqueeze(0)
-                loss = criterion(pred_logits, mask_gt_batch)
+            for i, out in enumerate(outputs):
+                pred_logits = out['masks'].unsqueeze(0)
+                target = mask_gts[i].unsqueeze(0)
+                loss = criterion(pred_logits, target)
 
-            pred_binary = (torch.sigmoid(pred_logits) > 0.5).float()
-            inter = (pred_binary * mask_gt_batch).sum()
-            dice = (2 * inter + 1e-5) / (pred_binary.sum() + mask_gt_batch.sum() + 1e-5)
+                pred_binary = (torch.sigmoid(pred_logits) > 0.5).float()
+                inter = (pred_binary * target).sum()
+                dice = (2 * inter + 1e-5) / (pred_binary.sum() + target.sum() + 1e-5)
 
-            running_loss += loss.item()
-            running_dice += dice.item()
-            n_batches += 1
+                running_loss += loss.item()
+                running_dice += dice.item()
+                n_batches += 1
 
     avg_loss = running_loss / max(n_batches, 1)
     avg_dice = running_dice / max(n_batches, 1)
