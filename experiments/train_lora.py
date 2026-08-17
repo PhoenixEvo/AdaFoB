@@ -471,6 +471,8 @@ def main():
     parser.add_argument('--val_every', type=int, default=5, help='Validate every N epochs')
     parser.add_argument('--sam_ckpt', type=str, default=None,
                         help='Path to sam_vit_b checkpoint')
+    parser.add_argument('--resume_ckpt', type=str, default=None,
+                        help='Path to a LoRA checkpoint to resume from (e.g. lora_fold0_best.pth)')
     parser.add_argument('--data_dir', type=str, default=None,
                         help='Path to data directory containing sabs_CT_normalized/')
     args = parser.parse_args()
@@ -510,6 +512,14 @@ def main():
     print("\nLoading SAM ViT-B...")
     sam = sam_model_registry["vit_b"](checkpoint=sam_ckpt)
     lora_model = LoRA_Sam(sam, r=args.rank, lora_alpha=args.rank * 2)
+    
+    if args.resume_ckpt:
+        if os.path.exists(args.resume_ckpt):
+            print(f"\n[RESUME] Resuming from LoRA checkpoint: {args.resume_ckpt}")
+            lora_model.load_lora_parameters(args.resume_ckpt)
+        else:
+            print(f"\n[WARNING] Resume checkpoint not found: {args.resume_ckpt}")
+
     lora_model = lora_model.to(device)
 
     # ── Build datasets ────────────────────────────────────────────────────
