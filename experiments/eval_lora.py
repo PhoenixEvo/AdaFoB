@@ -209,7 +209,8 @@ def evaluate_lora(gpu=0, target_organs=None, target_fold=None):
 
         # Load LoRA checkpoint for this fold
         if has_lora:
-            lora_ckpt = os.path.join(LORA_CKPT_DIR, f"lora_fold{eval_fold}_best.pth")
+            ckpt_dir_to_use = args.lora_ckpt_dir if args.lora_ckpt_dir else LORA_CKPT_DIR
+            lora_ckpt = os.path.join(ckpt_dir_to_use, f"lora_fold{eval_fold}_best.pth")
             if os.path.exists(lora_ckpt):
                 lora_model.load_lora_parameters(lora_ckpt)
                 print(f"  Loaded LoRA weights: {lora_ckpt}")
@@ -448,6 +449,8 @@ if __name__ == "__main__":
                         help='Organ IDs (default: split by GPU)')
     parser.add_argument('--fold', type=int, default=None,
                         help='Specific fold (0-4). Runs all if None.')
+    parser.add_argument('--lora_ckpt_dir', type=str, default=None,
+                        help='Custom directory containing LoRA checkpoints')
     args = parser.parse_args()
 
     gpu_id = int(args.gpu)
