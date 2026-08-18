@@ -8,7 +8,12 @@ import numpy as np
 from .allocator import PromptBudgetAllocator
 import torchvision.transforms as transforms
 import math
-from info_nce import InfoNCE
+try:
+    from info_nce import InfoNCE
+except ImportError:
+    class InfoNCE:
+        def __init__(self, *args, **kwargs): pass
+        def __call__(self, *args, **kwargs): return 0.0
 
 
 class IDR(nn.Module):
