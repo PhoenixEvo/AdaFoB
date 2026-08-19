@@ -483,8 +483,8 @@ def main():
         args.batch_size = 1
         args.grad_accum = 16
     
-    if args.epochs > 60:
-        args.epochs = 60
+    if args.epochs > 25:
+        args.epochs = 25
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
