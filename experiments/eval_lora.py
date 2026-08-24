@@ -409,7 +409,8 @@ def evaluate_lora(gpu=0, target_organs=None, target_fold=None):
     import pandas as pd
     df = pd.DataFrame(results_data)
     os.makedirs(os.path.join(REPO_DIR, "results"), exist_ok=True)
-    out_csv = os.path.join(REPO_DIR, "results", f"lora_eval_gpu{gpu}.csv")
+    csv_name = f"lora_eval_gpu{gpu}.csv" if target_fold is None else f"lora_eval_fold{target_fold}_gpu{gpu}.csv"
+    out_csv = os.path.join(REPO_DIR, "results", csv_name)
     df.to_csv(out_csv, index=False)
     print(f"\nResults saved to {out_csv}")
 
