@@ -1,0 +1,19 @@
+method,venue,year,setting,shot,spleen,rk,lk,liver,mean_dice,hd95,source,comparability,preprocessing
+ALPNet / SSL-ALPNet,ECCV'20 / TMI'22,2022,Setting I,1-shot,70.96,71.81,72.36,78.29,73.35,,Literature,Direct,Ouyang et al.
+ADNet,CVPR'22,2022,Setting I,1-shot,70.12,71.45,72.80,78.42,73.20,,Literature,Direct,Ouyang et al.
+CRAPNet,MICCAI'22,2022,Setting I,1-shot,72.30,73.10,73.40,77.80,74.15,,Literature,Direct,Ouyang et al.
+RP-Net,ICCV'21,2021,Setting I,1-shot,68.40,70.20,71.50,77.10,71.80,,Literature,Direct,Ouyang et al.
+ProtoSAM,2024,2024,Setting I,1-shot,70.24,75.67,71.31,84.79,75.50,,Literature,Direct,Ouyang et al.
+PGRNet,TMI'23,2023,Setting I,1-shot,72.09,79.88,74.23,82.48,77.17,,Literature,Direct,Ouyang et al.
+RPT,MICCAI'23,2023,Setting I,1-shot,79.13,72.58,77.05,82.57,77.83,,Literature,Direct,Ouyang et al.
+CAT-Net,ICCV'23,2023,Setting I,1-shot,76.40,76.50,78.20,80.10,77.80,,Literature,Direct,Ouyang et al.
+GMRD,TMI'24,2024,Setting I,1-shot,78.31,74.46,81.70,79.60,78.52,,Literature,Direct,Ouyang et al.
+FoB + SAM-Med2D,CVPR'26,2026,Setting I,1-shot,78.06,80.02,79.18,85.54,80.70,,Literature,Direct,Ouyang et al.
+AM-SAM,MICCAI'25,2025,Setting I,1-shot,87.11,86.01,84.37,87.28,86.19,,Literature,Direct,Ouyang et al.
+FoB + SAM (published),CVPR'26,2026,Setting I,1-shot,84.54,86.51,87.29,86.51,86.21,,Literature,Direct,Ouyang et al.
+FoB Baseline (re-run),This work,2026,Setting I,1-shot,84.34,85.62,85.91,87.08,85.74,30.0,Re-run,Pipeline deviation*,Whole-corpus z-score
+FoB + LoRA (ours),This work,2026,Setting I,1-shot,88.22,84.89,87.99,94.09,88.80,28.4,Re-run,Pipeline deviation*,Whole-corpus z-score
+AdaFoB + LoRA (ours),This work,2026,Setting I,1-shot,88.31,84.92,87.37,94.18,88.70,30.5,Re-run,Pipeline deviation*,Whole-corpus z-score
+SAMed (ViT-B),MICCAI'23,2023,Fully Supervised,N/A,89.09,79.91,80.49,93.68,81.88,20.64,Literature,SCOPE MISMATCH: Fully supervised 18/12 split,Standard Synapse
+MedSAM,Nat Comm'24,2024,Interactive BBox,N/A,~90.0,~90.5,~89.2,~95.8,~89.0,,Literature,SCOPE MISMATCH: GT bounding box prompts,Multi-dataset
+SAM-Med2D,MedIA'24,2024,Interactive Pts,N/A,~88.4,~86.2,~85.9,~94.1,~87.5,,Literature,SCOPE MISMATCH: Interactive prompts,4.6M images
