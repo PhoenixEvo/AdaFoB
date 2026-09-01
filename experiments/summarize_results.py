@@ -19,7 +19,30 @@ def main():
         dfs.append(pd.read_csv(f))
     
     df_all = pd.concat(dfs, ignore_index=True)
-    
+
+    # ── Data completeness check ──────────────────────────────────────────
+    df_all = df_all.drop_duplicates(subset=['fold', 'organ', 'vol_id'], keep='last')
+    expected_organs = {'SPLEEN', 'RK', 'LK', 'LIVER'}
+    expected_folds = {0, 1, 2, 3, 4}
+    actual_combos = set(zip(df_all['fold'], df_all['organ']))
+    missing = []
+    for fold in expected_folds:
+        for organ in expected_organs:
+            if (fold, organ) not in actual_combos:
+                missing.append(f"fold={fold}, organ={organ}")
+    if missing:
+        print("\n" + "!"*80)
+        print("WARNING: INCOMPLETE DATA DETECTED")
+        print("The following fold-organ combinations are MISSING:")
+        for m in missing:
+            print(f"  - {m}")
+        print(f"Total samples: {len(df_all)} (expected 120 = 5 folds x 4 organs x 6 vols)")
+        print("Results below are BIASED. Do NOT use for final reporting.")
+        print("!"*80 + "\n")
+
+    cross = df_all.groupby(['fold', 'organ']).size().unstack(fill_value=0)
+    print(f"\nFold-Organ sample counts:\n{cross}\n")
+
     organs = df_all['organ'].unique()
     
     metrics = ['dice_baseline', 'hd95_baseline', 'dice_adafob_2d', 'hd95_adafob_2d', 
