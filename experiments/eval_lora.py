@@ -184,16 +184,16 @@ def evaluate_lora(gpu=0, target_organs=None, target_fold=None):
         has_vith = False
 
     # ── Init SAM ViT-B + LoRA ─────────────────────────────────────────────
-    print("Loading SAM ViT-B + LoRA...")
+    print(f"Loading SAM ViT-B + LoRA (rank={args.rank})...")
     if os.path.exists(SAM_B_CKPT):
         sam_b = sam_model_registry["vit_b"](checkpoint=SAM_B_CKPT)
-        lora_model = LoRA_Sam(sam_b, r=4, lora_alpha=8)
+        lora_model = LoRA_Sam(sam_b, r=args.rank, lora_alpha=args.rank * 2)
         has_lora = True
     else:
         sam_b_alt = find_path("sam_vit_b.pth", is_file=True)
         if os.path.exists(sam_b_alt):
             sam_b = sam_model_registry["vit_b"](checkpoint=sam_b_alt)
-            lora_model = LoRA_Sam(sam_b, r=4, lora_alpha=8)
+            lora_model = LoRA_Sam(sam_b, r=args.rank, lora_alpha=args.rank * 2)
             has_lora = True
         else:
             print("  WARNING: sam_vit_b checkpoint not found, skipping LoRA methods")
@@ -452,6 +452,8 @@ if __name__ == "__main__":
                         help='Specific fold (0-4). Runs all if None.')
     parser.add_argument('--lora_ckpt_dir', type=str, default=None,
                         help='Custom directory containing LoRA checkpoints')
+    parser.add_argument('--rank', type=int, default=4,
+                        help='LoRA rank used during training (default: 4)')
     args = parser.parse_args()
 
     gpu_id = int(args.gpu)
