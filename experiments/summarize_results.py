@@ -7,7 +7,7 @@ def main():
     repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     results_dir = os.path.join(repo_dir, "results")
     
-    csv_files = glob.glob(os.path.join(results_dir, "lora_eval_fold*.csv"))
+    csv_files = glob.glob(os.path.join(results_dir, "lora_eval*.csv"))
     if not csv_files:
         print("No evaluation CSVs found in results/ directory!")
         return
