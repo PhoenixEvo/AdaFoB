@@ -29,6 +29,22 @@ from torch.cuda.amp import autocast, GradScaler
 
 import SimpleITK as sitk
 
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+
+set_seed(42)
+
+
 # ── Path setup ────────────────────────────────────────────────────────────────
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_DIR)
@@ -468,6 +484,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=2, help='Batch size per GPU')
     parser.add_argument('--grad_accum', type=int, default=8, help='Gradient accumulation steps')
     parser.add_argument('--rank', type=int, default=4, help='LoRA rank')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--val_every', type=int, default=5, help='Validate every N epochs')
     parser.add_argument('--sam_ckpt', type=str, default=None,
                         help='Path to sam_vit_b checkpoint')
@@ -476,6 +493,7 @@ def main():
     parser.add_argument('--data_dir', type=str, default=None,
                         help='Path to data directory containing sabs_CT_normalized/')
     args = parser.parse_args()
+    set_seed(args.seed)
 
     # FORCE OVERRIDE to prevent Kaggle T4 OOM (ignores old notebook cell args)
     if args.batch_size > 1:

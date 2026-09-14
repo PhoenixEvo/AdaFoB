@@ -22,6 +22,7 @@ import sys
 import glob
 import json
 import argparse
+import random
 import numpy as np
 import torch
 import cv2
@@ -34,6 +35,19 @@ try:
 except ImportError:
     os.system("pip install medpy")
     from medpy.metric.binary import hd95
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+set_seed(42)
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if "/kaggle/working/AdaFoB" not in sys.path:
@@ -126,7 +140,20 @@ def compute_volume_hd95(pred, gt, spacing):
     if pred.sum() == 0 or gt.sum() == 0:
         return 300.0
     try:
-        return hd95(pred, gt, voxelspacing=spacing)
+        # sitk returns (x, y, z), but numpy array is (z, y, x). Medpy expects spacing in numpy order.
+        dist = hd95(pred, gt, voxelspacing=spacing[::-1])
+        
+        # Sanity check: distance cannot exceed the diagonal of the physical volume
+        shape_z, shape_y, shape_x = pred.shape
+        max_diag = np.sqrt(
+            (shape_x * spacing[0])**2 + 
+            (shape_y * spacing[1])**2 + 
+            (shape_z * spacing[2])**2
+        )
+        if dist > max_diag:
+            print(f"[WARNING] Computed HD95 ({dist:.2f}mm) exceeds max physical diagonal ({max_diag:.2f}mm)!")
+            
+        return dist
     except:
         return 300.0
 
@@ -454,7 +481,9 @@ if __name__ == "__main__":
                         help='Custom directory containing LoRA checkpoints')
     parser.add_argument('--rank', type=int, default=4,
                         help='LoRA rank used during training (default: 4)')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     args = parser.parse_args()
+    set_seed(args.seed)
 
     gpu_id = int(args.gpu)
     if args.organs is None:

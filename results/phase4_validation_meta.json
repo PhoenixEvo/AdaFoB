@@ -1,0 +1,45 @@
+{
+  "hu_window": [
+    -125.0,
+    275.0
+  ],
+  "baseline_norm": "dataset",
+  "adafob_norm": "dataset",
+  "dataset_mean": 35.57674213943421,
+  "dataset_std": 59.63469623444056,
+  "domains": {
+    "raw_hu": 30
+  },
+  "n_volumes": 30,
+  "organs": [
+    1,
+    2,
+    3,
+    6
+  ],
+  "seed": 2021,
+  "alignment": {
+    "transform": "identity",
+    "z_shift": 0,
+    "confident": true,
+    "scores": {
+      "identity": 5.925455957146677,
+      "flip_y": 0.4152529390530677,
+      "flip_x": 0.35513908358578683,
+      "rot180": 0.32565857495357925,
+      "transpose": -1.1410789616593016,
+      "transpose+flip_y": -0.5068556293536306,
+      "transpose+flip_x": -1.5589575503129556,
+      "rot90": -0.32903250451654587,
+      "rot270": -1.6125857984847813
+    }
+  },
+  "oracle_dice": 0.9476698700149799,
+  "require_oracle": 0.85,
+  "mask_select": "fixed0",
+  "oob_mode": "drop",
+  "prompt_oob_discarded": {
+    "ada": 0,
+    "base": 0
+  }
+}
