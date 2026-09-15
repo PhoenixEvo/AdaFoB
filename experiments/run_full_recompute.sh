@@ -12,6 +12,12 @@ echo " Starting Full HD95 Recompute for All Ranks (Seed 42)"
 echo " Repository directory: $REPO_DIR"
 echo "================================================================"
 
+# Check / download SAM ViT-B if needed
+if [ ! -f /kaggle/working/sam_vit_b_01ec64.pth ] && [ -z "$(find /kaggle/input -name "sam_vit_b*.pth" 2>/dev/null)" ]; then
+    echo ">> Downloading SAM ViT-B checkpoint to /kaggle/working/sam_vit_b_01ec64.pth..."
+    wget -q -O /kaggle/working/sam_vit_b_01ec64.pth https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth || true
+fi
+
 find_ckpt_dir() {
     local r=$1
     local dir=""

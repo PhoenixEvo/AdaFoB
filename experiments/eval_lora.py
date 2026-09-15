@@ -212,19 +212,31 @@ def evaluate_lora(gpu=0, target_organs=None, target_fold=None):
 
     # ── Init SAM ViT-B + LoRA ─────────────────────────────────────────────
     print(f"Loading SAM ViT-B + LoRA (rank={args.rank})...")
-    if os.path.exists(SAM_B_CKPT):
-        sam_b = sam_model_registry["vit_b"](checkpoint=SAM_B_CKPT)
+    sam_b_path = None
+    for cand in [SAM_B_CKPT, find_path("sam_vit_b.pth", is_file=True), "/kaggle/working/sam_vit_b_01ec64.pth", "/kaggle/working/checkpoints/sam_vit_b_01ec64.pth"]:
+        if cand and os.path.exists(cand):
+            sam_b_path = cand
+            break
+    if not sam_b_path:
+        found = glob.glob("/kaggle/input/**/sam_vit_b*.pth", recursive=True) + glob.glob("/kaggle/working/**/sam_vit_b*.pth", recursive=True)
+        if found:
+            sam_b_path = found[0]
+        else:
+            print("  Auto-downloading sam_vit_b_01ec64.pth...")
+            os.makedirs("/kaggle/working", exist_ok=True)
+            dl_path = "/kaggle/working/sam_vit_b_01ec64.pth"
+            os.system(f"wget -q -O {dl_path} https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth")
+            if os.path.exists(dl_path):
+                sam_b_path = dl_path
+
+    if sam_b_path and os.path.exists(sam_b_path):
+        print(f"  Using SAM ViT-B weights: {sam_b_path}")
+        sam_b = sam_model_registry["vit_b"](checkpoint=sam_b_path)
         lora_model = LoRA_Sam(sam_b, r=args.rank, lora_alpha=args.rank * 2)
         has_lora = True
     else:
-        sam_b_alt = find_path("sam_vit_b.pth", is_file=True)
-        if os.path.exists(sam_b_alt):
-            sam_b = sam_model_registry["vit_b"](checkpoint=sam_b_alt)
-            lora_model = LoRA_Sam(sam_b, r=args.rank, lora_alpha=args.rank * 2)
-            has_lora = True
-        else:
-            print("  WARNING: sam_vit_b checkpoint not found, skipping LoRA methods")
-            has_lora = False
+        print("  WARNING: sam_vit_b checkpoint not found, skipping LoRA methods")
+        has_lora = False
 
     results_data = []
 
