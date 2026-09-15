@@ -185,7 +185,12 @@ def predict_with_sam(predictor, pts_pos, pts_neg, img_shape):
 # ── Main Evaluation ──────────────────────────────────────────────────────────
 def evaluate_lora(gpu=0, target_organs=None, target_fold=None):
     """Main evaluation loop comparing baseline vs LoRA methods."""
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.set_device(gpu)
+            print(f"[Device] Set PyTorch active CUDA device to: cuda:{gpu} ({torch.cuda.get_device_name(gpu)})")
+        except Exception as e:
+            print(f"[Device Warning] Could not set device to cuda:{gpu}: {e}")
 
     if target_organs is None:
         target_organs = TEST_LABELS

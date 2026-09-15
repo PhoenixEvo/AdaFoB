@@ -506,8 +506,13 @@ def main():
     if args.epochs > 20:
         args.epochs = 20
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.set_device(args.gpu)
+            print(f"[Device] Set PyTorch active CUDA device to: cuda:{args.gpu} ({torch.cuda.get_device_name(args.gpu)})")
+        except Exception as e:
+            print(f"[Device Warning] Could not set device to cuda:{args.gpu}: {e}")
+    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
 
     print(f"\n{'='*70}")
     print(f"SAM LoRA Training: Fold {args.fold} (GPU {args.gpu})")

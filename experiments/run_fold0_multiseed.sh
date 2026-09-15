@@ -37,8 +37,8 @@ echo "   GPU 0: Rank 4"
 echo "   GPU 1: Rank 16"
 echo "========================================================================"
 
-python experiments/train_lora.py --fold "$FOLD" --gpu 0 --rank 4 --seed "$SEED" --output_dir "$CKPT_R4" > train_r4_s${SEED}_f0.log 2>&1 &
-python experiments/train_lora.py --fold "$FOLD" --gpu 1 --rank 16 --seed "$SEED" --output_dir "$CKPT_R16" > train_r16_s${SEED}_f0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0 python experiments/train_lora.py --fold "$FOLD" --gpu 0 --rank 4 --seed "$SEED" --output_dir "$CKPT_R4" > train_r4_s${SEED}_f0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 python experiments/train_lora.py --fold "$FOLD" --gpu 1 --rank 16 --seed "$SEED" --output_dir "$CKPT_R16" > train_r16_s${SEED}_f0.log 2>&1 &
 wait
 
 echo ">> Training complete for both ranks on Fold $FOLD."
@@ -52,8 +52,8 @@ echo ">> EVALUATING RANK 4 (FOLD $FOLD, SEED $SEED)"
 echo "========================================================================"
 rm -f results/lora_eval*.csv
 
-python experiments/eval_lora.py --gpu 0 --organs 1 2 --fold "$FOLD" --rank 4 --seed "$SEED" --lora_ckpt_dir "$CKPT_R4" > eval_r4_s${SEED}_gpu0.log 2>&1 &
-python experiments/eval_lora.py --gpu 1 --organs 3 6 --fold "$FOLD" --rank 4 --seed "$SEED" --lora_ckpt_dir "$CKPT_R4" > eval_r4_s${SEED}_gpu1.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0 python experiments/eval_lora.py --gpu 0 --organs 1 2 --fold "$FOLD" --rank 4 --seed "$SEED" --lora_ckpt_dir "$CKPT_R4" > eval_r4_s${SEED}_gpu0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 python experiments/eval_lora.py --gpu 1 --organs 3 6 --fold "$FOLD" --rank 4 --seed "$SEED" --lora_ckpt_dir "$CKPT_R4" > eval_r4_s${SEED}_gpu1.log 2>&1 &
 wait
 
 python experiments/summarize_results.py
@@ -71,8 +71,8 @@ echo ">> EVALUATING RANK 16 (FOLD $FOLD, SEED $SEED)"
 echo "========================================================================"
 rm -f results/lora_eval*.csv
 
-python experiments/eval_lora.py --gpu 0 --organs 1 2 --fold "$FOLD" --rank 16 --seed "$SEED" --lora_ckpt_dir "$CKPT_R16" > eval_r16_s${SEED}_gpu0.log 2>&1 &
-python experiments/eval_lora.py --gpu 1 --organs 3 6 --fold "$FOLD" --rank 16 --seed "$SEED" --lora_ckpt_dir "$CKPT_R16" > eval_r16_s${SEED}_gpu1.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0 python experiments/eval_lora.py --gpu 0 --organs 1 2 --fold "$FOLD" --rank 16 --seed "$SEED" --lora_ckpt_dir "$CKPT_R16" > eval_r16_s${SEED}_gpu0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 python experiments/eval_lora.py --gpu 1 --organs 3 6 --fold "$FOLD" --rank 16 --seed "$SEED" --lora_ckpt_dir "$CKPT_R16" > eval_r16_s${SEED}_gpu1.log 2>&1 &
 wait
 
 python experiments/summarize_results.py

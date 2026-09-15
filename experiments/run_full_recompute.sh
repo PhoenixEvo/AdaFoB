@@ -45,8 +45,8 @@ for rank in 2 4 8 16; do
     
     rm -f results/lora_eval*.csv
     
-    python experiments/eval_lora.py --gpu 0 --rank $rank --seed 42 --lora_ckpt_dir "$CKPT_DIR" &
-    python experiments/eval_lora.py --gpu 1 --rank $rank --seed 42 --lora_ckpt_dir "$CKPT_DIR" &
+    CUDA_VISIBLE_DEVICES=0 python experiments/eval_lora.py --gpu 0 --rank $rank --seed 42 --lora_ckpt_dir "$CKPT_DIR" &
+    CUDA_VISIBLE_DEVICES=1 python experiments/eval_lora.py --gpu 1 --rank $rank --seed 42 --lora_ckpt_dir "$CKPT_DIR" &
     wait
     
     python experiments/summarize_results.py
