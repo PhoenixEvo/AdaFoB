@@ -485,6 +485,8 @@ def main():
     parser.add_argument('--grad_accum', type=int, default=8, help='Gradient accumulation steps')
     parser.add_argument('--rank', type=int, default=4, help='LoRA rank')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--output_dir', type=str, default=None,
+                        help='Directory to save trained checkpoints')
     parser.add_argument('--val_every', type=int, default=5, help='Validate every N epochs')
     parser.add_argument('--sam_ckpt', type=str, default=None,
                         help='Path to sam_vit_b checkpoint')
@@ -579,7 +581,7 @@ def main():
     scaler = GradScaler()
 
     # ── Output directory ──────────────────────────────────────────────────
-    out_dir = os.path.join(REPO_DIR, "outputs", "lora_checkpoints")
+    out_dir = args.output_dir if args.output_dir else os.path.join(REPO_DIR, "outputs", "lora_checkpoints")
     os.makedirs(out_dir, exist_ok=True)
     best_dice = 0.0
     best_epoch = 0
