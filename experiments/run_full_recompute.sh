@@ -20,15 +20,25 @@ fi
 
 find_ckpt_dir() {
     local r=$1
+    local cand=""
     local dir=""
     # Search for explicit rank (e.g. rank2, rank4, rank8, rank16)
-    dir=$(dirname $(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -i "rank${r}" | head -n 1 || true))
+    cand=$(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -i "rank${r}" | head -n 1 || true)
+    if [ -n "$cand" ]; then
+        dir=$(dirname "$cand")
+    fi
     if [ -z "$dir" ]; then
-        dir=$(dirname $(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -i "r${r}" | head -n 1 || true))
+        cand=$(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -i "r${r}" | head -n 1 || true)
+        if [ -n "$cand" ]; then
+            dir=$(dirname "$cand")
+        fi
     fi
     # If rank 4 and not found, look for fallback without "rank" in the name
     if [ "$r" -eq 4 ] && [ -z "$dir" ]; then
-        dir=$(dirname $(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -v -i "rank" | head -n 1 || true))
+        cand=$(find /kaggle/input -name "lora_fold0_best.pth" 2>/dev/null | grep -v -i "rank" | head -n 1 || true)
+        if [ -n "$cand" ]; then
+            dir=$(dirname "$cand")
+        fi
     fi
     if [ -z "$dir" ]; then
         dir="/kaggle/input/datasets/nhatphatnguyen/adafob-rank${r}-ckpts"

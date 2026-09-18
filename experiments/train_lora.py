@@ -507,12 +507,16 @@ def main():
         args.epochs = 20
 
     if torch.cuda.is_available():
+        n_gpus = torch.cuda.device_count()
+        target_dev = args.gpu if args.gpu < n_gpus else 0
         try:
-            torch.cuda.set_device(args.gpu)
-            print(f"[Device] Set PyTorch active CUDA device to: cuda:{args.gpu} ({torch.cuda.get_device_name(args.gpu)})")
+            torch.cuda.set_device(target_dev)
+            print(f"[Device] Set PyTorch active CUDA device to: cuda:{target_dev} (mapped from requested gpu={args.gpu}, total visible={n_gpus}: {torch.cuda.get_device_name(target_dev)})")
         except Exception as e:
-            print(f"[Device Warning] Could not set device to cuda:{args.gpu}: {e}")
-    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
+            print(f"[Device Warning] Could not set device to cuda:{target_dev}: {e}")
+        device = torch.device(f'cuda:{target_dev}')
+    else:
+        device = torch.device('cpu')
 
     print(f"\n{'='*70}")
     print(f"SAM LoRA Training: Fold {args.fold} (GPU {args.gpu})")
