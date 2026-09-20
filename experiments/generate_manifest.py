@@ -59,7 +59,7 @@ def update_manifest(result_file, ckpt_dir, rank, seed, folds):
         df_row.to_csv(manifest_file, mode='a', header=False, index=False)
     else:
         df_row.to_csv(manifest_file, index=False)
-    print(f"✅ Provenance successfully logged to {manifest_file} for {result_file}")
+    print(f"[PROVENANCE] Successfully logged to {manifest_file} for {result_file}")
     print(f"   Rank: {rank} | Seed: {seed} | Folds: {folds}")
     print(f"   Checkpoints hashed ({len(ckpt_hashes)} files): {ckpt_hash_str[:60]}...")
 
