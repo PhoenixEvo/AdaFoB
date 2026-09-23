@@ -503,8 +503,6 @@ def main():
         args.batch_size = 1
         args.grad_accum = 16
     
-    if args.epochs > 20:
-        args.epochs = 20
 
     if torch.cuda.is_available():
         n_gpus = torch.cuda.device_count()
