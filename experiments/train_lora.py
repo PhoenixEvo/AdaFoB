@@ -479,7 +479,7 @@ def main():
     parser = argparse.ArgumentParser(description="SAM LoRA Fine-Tuning on SABS CT")
     parser.add_argument('--fold', type=int, required=True, help='CV fold (0-4)')
     parser.add_argument('--gpu', type=int, default=0, help='GPU ID')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=20, help='Number of training epochs (standardized to 20 for Kaggle T4)')
     parser.add_argument('--lr', type=float, default=5e-4, help='Peak learning rate')
     parser.add_argument('--batch_size', type=int, default=2, help='Batch size per GPU')
     parser.add_argument('--grad_accum', type=int, default=8, help='Gradient accumulation steps')
@@ -497,12 +497,15 @@ def main():
     args = parser.parse_args()
     set_seed(args.seed)
 
+    # Standardize to 20 epochs matching Rank 2, 8, 16 runs (20 epochs = ~9h on 2x T4)
+    if args.epochs > 20:
+        args.epochs = 20
+
     # FORCE OVERRIDE to prevent Kaggle T4 OOM (ignores old notebook cell args)
     if args.batch_size > 1:
         print("\n[WARNING] Forcing batch_size=1 and grad_accum=16 to prevent CUDA OOM on Kaggle T4!")
         args.batch_size = 1
         args.grad_accum = 16
-    
 
     if torch.cuda.is_available():
         n_gpus = torch.cuda.device_count()
