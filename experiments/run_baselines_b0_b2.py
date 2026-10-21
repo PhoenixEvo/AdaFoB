@@ -223,25 +223,30 @@ def main():
     data_root = os.path.dirname(norm_dir)
 
     ckpt_dir = find_file([
+        "/tmp/fob_checkpoints",
         "/kaggle/working/fob_checkpoints",
         "/kaggle/input/baseline_fob/exps_train_on_SABS_FSMIS_FoB",
         "/kaggle/input/adafob-checkpoints",
         os.path.join(REPO_DIR, "checkpoints", "fob_checkpoints")
-    ]) or "/kaggle/working/fob_checkpoints"
+    ]) or "/tmp/fob_checkpoints"
 
     sam_h_path = find_file([
+        "/tmp/checkpoints/sam_vit_h_4b8939.pth",
+        "/kaggle/working/checkpoints/sam_vit_h_4b8939.pth",
         "/kaggle/working/sam_vit_h_4b8939.pth",
         "/kaggle/working/sam_vit_h.pth",
         "/kaggle/input/checkpoints/sam_vit_h_4b8939.pth",
         "D:/results/checkpoints/sam_vit_h_4b8939.pth"
-    ]) or "/kaggle/working/sam_vit_h_4b8939.pth"
+    ]) or "/tmp/checkpoints/sam_vit_h_4b8939.pth"
 
     sam_b_path = find_file([
+        "/tmp/checkpoints/sam_vit_b_01ec64.pth",
+        "/kaggle/working/checkpoints/sam_vit_b_01ec64.pth",
         "/kaggle/working/sam_vit_b_01ec64.pth",
         "/kaggle/working/sam_vit_b.pth",
         "/kaggle/input/checkpoints/sam_vit_b_01ec64.pth",
         "D:/results/checkpoints/sam_vit_b_01ec64.pth"
-    ]) or "/kaggle/working/sam_vit_b_01ec64.pth"
+    ]) or "/tmp/checkpoints/sam_vit_b_01ec64.pth"
 
     ensure_checkpoints(ckpt_dir, sam_h_path, sam_b_path)
 
@@ -328,12 +333,13 @@ def main():
                 query_images = sample['image'].to(device)
                 query_labels = sample['label'].to(device)
                 C_q = query_images.shape[1]
+                H_q, W_q = query_images.shape[-2], query_images.shape[-1]
 
                 # Arrays to hold predictions
-                pred_vol_b0_raw = np.zeros((C_q, 512, 512), dtype=np.uint8)
-                pred_vol_b0_cc  = np.zeros((C_q, 512, 512), dtype=np.uint8)
-                pred_vol_b1_raw = np.zeros((C_q, 512, 512), dtype=np.uint8)
-                pred_vol_b2_cc  = np.zeros((C_q, 512, 512), dtype=np.uint8)
+                pred_vol_b0_raw = np.zeros((C_q, H_q, W_q), dtype=np.uint8)
+                pred_vol_b0_cc  = np.zeros((C_q, H_q, W_q), dtype=np.uint8)
+                pred_vol_b1_raw = np.zeros((C_q, H_q, W_q), dtype=np.uint8)
+                pred_vol_b2_cc  = np.zeros((C_q, H_q, W_q), dtype=np.uint8)
 
                 # Prompt coordinates storage for overlays
                 overlay_data = []
@@ -344,25 +350,35 @@ def main():
                     for sub_chunk in range(N_PART):
                         support_image_s = [support_image[sub_chunk]]
                         support_fg_mask_s = [support_fg_mask[sub_chunk]]
-                        query_image_s = query_images[:, idx_[sub_chunk]:idx_[sub_chunk+1]]
-                        query_label_s = query_labels[:, idx_[sub_chunk]:idx_[sub_chunk+1]]
+                        query_image_chunk = query_images[0, idx_[sub_chunk]:idx_[sub_chunk+1]]
+                        query_label_chunk = query_labels[0, idx_[sub_chunk]:idx_[sub_chunk+1]]
 
-                        if query_image_s.shape[1] == 0:
+                        if query_image_chunk.shape[0] == 0:
                             continue
 
-                        fob_out = fob_model(
-                            support_image_s, support_fg_mask_s,
-                            [query_image_s], query_label_s,
-                            train=False, use_skeleton=False, budget_Np=10
-                        )
-                        uni_neg_all, pos_all = fob_out[0], fob_out[1]
-
-                        for j in range(query_image_s.shape[1]):
+                        for j in range(query_image_chunk.shape[0]):
                             global_z = idx_[sub_chunk] + j
-                            pos_arr = np.array(pos_all[j])[:10] if j < len(pos_all) else np.zeros((0, 2))
-                            neg_arr = np.array(uni_neg_all[j])[:10] if j < len(uni_neg_all) else np.zeros((0, 2))
+                            q_img_slice = query_image_chunk[[j]]
+                            q_lbl_slice = query_label_chunk[[j]]
 
-                            img_t = query_image_s[[j]][0].permute(1, 2, 0).cpu().numpy()
+                            if support_image_s[0].max() == 0 or q_lbl_slice.max() == 0:
+                                pos_arr = np.zeros((0, 2))
+                                neg_arr = np.zeros((0, 2))
+                            else:
+                                try:
+                                    fob_out = fob_model(
+                                        [support_image_s], [support_fg_mask_s],
+                                        [q_img_slice], q_lbl_slice,
+                                        train=False, use_skeleton=False, budget_Np=10
+                                    )
+                                    uni_neg_all, pos_all = fob_out[0], fob_out[1]
+                                    neg_arr = np.array(uni_neg_all).reshape(-1, 2)[:10]
+                                    pos_arr = np.array(pos_all).reshape(-1, 2)[:10]
+                                except Exception:
+                                    pos_arr = np.zeros((0, 2))
+                                    neg_arr = np.zeros((0, 2))
+
+                            img_t = q_img_slice[0].permute(1, 2, 0).cpu().numpy()
                             # Normalization: standard FoB SAM 0-255 uint8 conversion
                             img_norm = ((img_t - img_t.min()) / (img_t.max() - img_t.min() + 1e-8) * 255).astype(np.uint8)
 
@@ -409,7 +425,7 @@ def main():
                                 cv2.drawContours(c_mask, contours, -1, 1, 1)
                                 mean_edge_grad = float(gmag[c_mask == 1].mean()) if c_mask.sum() > 0 else 0.0
 
-                                gt_slice = (query_label_s[[j]][0].cpu().numpy() > 0).astype(np.uint8)
+                                gt_slice = (q_lbl_slice[0].cpu().numpy() > 0).astype(np.uint8)
                                 fp_area = float((np.logical_and(b1_raw == 1, gt_slice == 0)).sum())
                                 s4_gradient_correlations.append({"edge_grad": mean_edge_grad, "fp_area": fp_area, "pat_id": pat_id})
 
@@ -417,7 +433,7 @@ def main():
                             if "image_7" in vol_id_str or label_name == "RK":
                                 overlay_data.append({
                                     "slice_z": global_z, "img": img_norm,
-                                    "gt": (query_label_s[[j]][0].cpu().numpy() > 0).astype(np.uint8),
+                                    "gt": (q_lbl_slice[0].cpu().numpy() > 0).astype(np.uint8),
                                     "b0": b0_raw, "b1": b1_raw, "b2": b2_cc,
                                     "pos": pos_arr, "neg": neg_arr
                                 })
