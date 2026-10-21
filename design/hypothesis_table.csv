@@ -1,0 +1,10 @@
+id,arm_vs_comparator,endpoint,test_type,margin,direction,alpha,ci_level,multiplicity_group
+H1_Dice_NonInf,Selector_vs_B1,Dice,non-inferiority,-0.015,higher_is_better,0.05,0.90,confirmatory_holm
+H2_HD95_Superiority_B4,Selector_vs_B4,HD95,superiority,0.0,lower_is_better,0.05,0.95,confirmatory_holm
+H3_HD95_Superiority_B3,Selector_vs_B3,HD95,superiority,0.0,lower_is_better,0.05,0.95,confirmatory_holm
+H4_Dice_Superiority_B4,Selector_vs_B4,Dice,superiority,0.0,higher_is_better,0.05,0.95,confirmatory_holm
+K1_Screen_Random_HD95,Selector_vs_B4,HD95,superiority,0.0,lower_is_better,0.05,0.95,screening_gate_unadjusted
+K2_Screen_Fixed_HD95,Selector_vs_B3,HD95,superiority,0.0,lower_is_better,0.05,0.95,screening_gate_unadjusted
+K3_Screen_B0_Dice,Selector_vs_B0,Dice,non-inferiority,-0.015,higher_is_better,0.05,0.90,screening_gate_unadjusted
+K4_Screen_Latency,Selector_vs_B1,Latency,non-inferiority,0.0,lower_is_better,0.05,0.95,screening_gate_unadjusted
+R_B0_Reproduction,B0_vs_Literature,Dice,equivalence,0.010,two_sided,0.05,0.90,literature_audit

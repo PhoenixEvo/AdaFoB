@@ -1,0 +1,110 @@
+# Baseline Matrix Configuration for AdaFoB Research Project
+# Defines the canonical baseline comparison suite under strictly identical paired episodes.
+
+paired_episode_manifest: "protocol/paired_episode_manifest.csv"
+dataset_name: "SABS"
+num_folds: 5
+num_episodes: 120
+eval_metrics: ["dice", "hd95"]
+
+baselines:
+  # Base A: Published upstream FoB reference
+  Base_A:
+    name: "FoB_ViT_H_Fixed10"
+    description: "Official published baseline: Frozen SAM ViT-H with fixed FoB prompting (Np=10)"
+    backbone: "vit_h"
+    sam_checkpoint: "sam_vit_h_4b8939.pth"
+    adaptation: "frozen"
+    prompt_allocator: "fixed"
+    fixed_budget: 10
+    scope: "Setting_I"
+
+  # Base B: Backbone-matched frozen reference
+  Base_B:
+    name: "FoB_ViT_B_Fixed10"
+    description: "Backbone-matched baseline: Frozen SAM ViT-B with fixed FoB prompting (Np=10)"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "frozen"
+    prompt_allocator: "fixed"
+    fixed_budget: 10
+    scope: "Setting_I"
+
+  # Base C: Uniform budget sweep on frozen ViT-B
+  Base_C:
+    name: "FoB_ViT_B_Budget_Sweep"
+    description: "Frozen SAM ViT-B with uniform fixed negative budget sweep Np in {0, 2, 4, 6, 10}"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "frozen"
+    prompt_allocator: "fixed_sweep"
+    budget_sweep: [0, 2, 4, 6, 10]
+    scope: "Setting_I"
+
+  # Base D: Random prompt subset control on frozen ViT-B
+  Base_D:
+    name: "FoB_ViT_B_Random_Subset"
+    description: "Frozen SAM ViT-B with random negative prompt subsets drawn from FoB points"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "frozen"
+    prompt_allocator: "random_subset"
+    subset_sizes: [2, 3, 4, 6]
+    scope: "Setting_I"
+
+  # Base E1: ViT-B + LoRA (Rank 4, seed 42) with fixed budget 10
+  Base_E1:
+    name: "FoB_ViT_B_LoRA_Fixed10"
+    description: "SAM ViT-B + LoRA (Rank 4, seed 42) with fixed FoB prompting (Np=10)"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "lora"
+    lora_rank: 4
+    lora_alpha: 8
+    seed: 42
+    prompt_allocator: "fixed"
+    fixed_budget: 10
+    scope: "In_Domain_Adaptation"
+
+  # Base E2: ViT-B + LoRA (Rank 4, seed 42) with fixed low budget
+  Base_E2:
+    name: "FoB_ViT_B_LoRA_Fixed_Low"
+    description: "SAM ViT-B + LoRA (Rank 4, seed 42) with fixed per-organ budget matching AdaFoB mean"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "lora"
+    lora_rank: 4
+    lora_alpha: 8
+    seed: 42
+    prompt_allocator: "fixed_per_organ"
+    fixed_budgets:
+      SPLEEN: 3
+      RK: 4
+      LK: 3
+      LIVER: 2
+    scope: "In_Domain_Adaptation"
+
+  # Base E3: ViT-B with decoder-only fine-tuning (no LoRA on image encoder)
+  Base_E3:
+    name: "FoB_ViT_B_Decoder_Only"
+    description: "SAM ViT-B with fine-tuned mask decoder only, image encoder frozen (no LoRA)"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "decoder_only"
+    seed: 42
+    prompt_allocator: "fixed"
+    fixed_budget: 10
+    scope: "In_Domain_Adaptation"
+
+  # Base E4: ViT-B + LoRA with random subset matching AdaFoB per-case budget
+  Base_E4:
+    name: "FoB_ViT_B_LoRA_Random_Budget_Matched"
+    description: "SAM ViT-B + LoRA with random subsets matching AdaFoB per-case budget"
+    backbone: "vit_b"
+    sam_checkpoint: "sam_vit_b_01ec64.pth"
+    adaptation: "lora"
+    lora_rank: 4
+    lora_alpha: 8
+    seed: 42
+    prompt_allocator: "random_matched"
+    scope: "In_Domain_Adaptation"
