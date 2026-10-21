@@ -50,8 +50,27 @@ class PromptBudgetAllocator(nn.Module):
         # 2. a_edge
         # a_edge = 1 - norm(mean(grad_I) on contour / mean(grad_I) on body)
         # We need gradient of query image (convert to grayscale first)
-        qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
-        qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
+        if isinstance(qry_img, np.ndarray):
+            if qry_img.ndim == 2:
+                qry_img_gray = qry_img.astype(np.float32)
+            elif qry_img.ndim == 3 and qry_img.shape[-1] == 3:
+                qry_img_gray = cv2.cvtColor(qry_img.astype(np.float32), cv2.COLOR_RGB2GRAY)
+            elif qry_img.ndim == 3 and qry_img.shape[0] == 3:
+                qry_img_gray = cv2.cvtColor(np.transpose(qry_img.astype(np.float32), (1, 2, 0)), cv2.COLOR_RGB2GRAY)
+            else:
+                qry_img_gray = qry_img.squeeze().astype(np.float32)
+        elif torch.is_tensor(qry_img):
+            t = qry_img.squeeze()
+            if t.ndim == 2:
+                qry_img_gray = t.detach().cpu().numpy().astype(np.float32)
+            elif t.ndim == 3 and t.shape[0] == 3:
+                qry_img_np = t.permute(1, 2, 0).detach().cpu().numpy()
+                qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
+            else:
+                qry_img_gray = t.detach().cpu().numpy().astype(np.float32)
+        else:
+            qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
+            qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
         
         # Compute gradient magnitude
         grad_x = cv2.Sobel(qry_img_gray, cv2.CV_32F, 1, 0, ksize=3)
@@ -162,8 +181,27 @@ class PromptBudgetAllocator(nn.Module):
         if len(offset_contours) == 0:
             return np.zeros((0, 2), dtype=np.float32)
             
-        qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
-        qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
+        if isinstance(qry_img, np.ndarray):
+            if qry_img.ndim == 2:
+                qry_img_gray = qry_img.astype(np.float32)
+            elif qry_img.ndim == 3 and qry_img.shape[-1] == 3:
+                qry_img_gray = cv2.cvtColor(qry_img.astype(np.float32), cv2.COLOR_RGB2GRAY)
+            elif qry_img.ndim == 3 and qry_img.shape[0] == 3:
+                qry_img_gray = cv2.cvtColor(np.transpose(qry_img.astype(np.float32), (1, 2, 0)), cv2.COLOR_RGB2GRAY)
+            else:
+                qry_img_gray = qry_img.squeeze().astype(np.float32)
+        elif torch.is_tensor(qry_img):
+            t = qry_img.squeeze()
+            if t.ndim == 2:
+                qry_img_gray = t.detach().cpu().numpy().astype(np.float32)
+            elif t.ndim == 3 and t.shape[0] == 3:
+                qry_img_np = t.permute(1, 2, 0).detach().cpu().numpy()
+                qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
+            else:
+                qry_img_gray = t.detach().cpu().numpy().astype(np.float32)
+        else:
+            qry_img_np = qry_img[0][0].permute(1, 2, 0).cpu().numpy()
+            qry_img_gray = cv2.cvtColor(qry_img_np, cv2.COLOR_RGB2GRAY)
         
         # We need to sample N_p points proportional to contour lengths
         # But Opus spec says "Process each connected component independently; allocate proportional to length; guarantee >= 1 per component"

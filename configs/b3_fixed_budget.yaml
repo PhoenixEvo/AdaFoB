@@ -1,0 +1,13 @@
+# B3 Fixed Budget Specification (Prepared under Amendment A1)
+# DO NOT RUN UNTIL APPROVED
+
+candidate_budgets: [2, 3, 4, 5, 6, 10]
+model: "vit_b"
+sam_checkpoint: "sam_vit_b_01ec64.pth"
+postprocessing: "connected_components"
+manifest_path: "protocol/paired_episode_manifest.csv"
+
+tuning_protocol:
+  method: "patient_isolated_cross_validation"
+  rule: "For test fold i, evaluate candidate budgets on the 88 patient-excluded tuning records. Select k* maximizing validation Dice."
+  selection_metric: "dice"

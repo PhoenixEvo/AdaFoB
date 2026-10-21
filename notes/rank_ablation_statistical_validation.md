@@ -1,5 +1,14 @@
 # LoRA Rank Ablation Statistical Validation & Model Selection
 
+> [!WARNING]
+> **[DO NOT CITE - CONTAMINATED EVALUATION & UNSEEDED RESULTS]**
+> An audit conducted on 2026-10-20 revealed that the CSV files underlying this document
+> (`lora_eval_rank2_combined.csv`, `lora_eval_rank8_combined.csv`, `lora_eval_rank16_combined.csv`)
+> suffered from Kaggle evaluation output directory race conditions, causing 78% to 83% of evaluation
+> rows to be cross-contaminated duplicate copies of Rank 2. Furthermore, these runs lacked random seed controls.
+> All p-values, Cohen's d effect sizes, and rank-ordering conclusions in this document are superseded and
+> invalid until clean multi-seed re-runs from cryptographically hashed checkpoints are executed.
+
 ## 1. Statistical Significance (Wilcoxon Signed-Rank + Cohen's d)
 We ran the two-sided Wilcoxon signed-rank test and standard Cohen's d on the paired 5-fold CV outputs (4 organs * 20 volumes * 5 folds = 400 cases) across all rank pairs.
 

@@ -1,0 +1,14 @@
+# B4 Random Subset Specification (Prepared under Amendment A1)
+# DO NOT RUN UNTIL APPROVED
+
+candidate_budgets: [2, 3, 4, 5, 6]
+num_seeds_per_episode: 5
+seeds: [42, 43, 44, 45, 46]
+model: "vit_b"
+sam_checkpoint: "sam_vit_b_01ec64.pth"
+postprocessing: "connected_components"
+manifest_path: "protocol/paired_episode_manifest.csv"
+
+reporting_protocol:
+  metrics: ["dice", "hd95"]
+  aggregations: ["mean_over_seeds", "std_over_seeds"]

@@ -1,0 +1,11 @@
+component_name,component_file,data_split_accessed,patient_ids_accessed,labels_accessed,supervision_type,setting_i_compliant,violation_reference
+FoB_Prompt_Generator_Upstream,third_party/FoB_SAM_upstream/train.py,Training folds (4 folds),Folds != eval_fold,None (supervoxels_5000),Unsupervised supervoxels,YES,None
+FoB_Prompt_Generator_Fork,third_party/FoB_SAM/models/FoB.py,Evaluation folds,Test fold patients,Query label passed to forward,Runtime inference,PARTIAL (V6 gating),V6
+SAM_ViT_H_Baseline,experiments/eval_lora.py,Test fold patients,FOLD[eval_fold],None during inference,Zero-shot frozen,YES,None
+LoRA_Encoder_FineTuning,experiments/train_lora.py,Training folds,Folds != eval_fold,GROUND TRUTH of Spleen RK LK Liver,Full target supervision,NO (FATAL V1),V1
+SAM_Mask_Decoder_FineTuning,experiments/train_lora.py,Training folds,Folds != eval_fold,GROUND TRUTH of Spleen RK LK Liver,Full target supervision,NO (FATAL V1),V1
+LoRA_Checkpoint_Selection,experiments/train_lora.py,TEST FOLD,FOLD[eval_fold] (eval query patients),GROUND TRUTH test masks for val Dice,Test-set model selection,NO (FATAL V2),V2
+PromptBudgetAllocator_Tuning,experiments/r3_3d_global_tune.py,TEST FOLD,FOLD[eval_fold] (eval query patients),Query GT masks for test Dice,Test-set parameter tuning,NO (FATAL V3),V3
+PromptBudgetAllocator_Runtime,third_party/FoB_SAM/models/allocator.py,Test fold queries,FOLD[eval_fold],Coarse pred from support prototype,Unsupervised heuristic,YES (V4 config bug),V4
+Fixed_Budget_Control_Extraction,experiments/extract_mean_budget.py,TEST FOLD,All 5 eval folds (120 test slices),Adaptive outputs on test folds,Post-hoc test averaging,NO (V5 descriptive only),V5
+TestDataset_Slice_Filtering,dataloaders/datasets.py,Test fold queries,FOLD[eval_fold],Query GT slice sum > 0,Benchmark assistance,DECLARED_ASSISTANCE (V7),V7

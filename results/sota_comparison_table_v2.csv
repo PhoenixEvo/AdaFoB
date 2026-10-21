@@ -11,10 +11,10 @@ GMRD,TMI'24,2024,Setting I,1-shot,78.31,74.46,81.70,79.60,78.52,,[literature; no
 FoB + SAM-Med2D,CVPR'26,2026,Setting I,1-shot,78.06,80.02,79.18,85.54,80.70,,[literature; not re-run],Direct,Ouyang et al.,
 AM-SAM,MICCAI'25,2025,Setting I,1-shot,87.11,86.01,84.37,87.28,86.19,,[literature; not re-run],Direct,Ouyang et al.,
 FoB + SAM (published),CVPR'26,2026,Setting I,1-shot,84.54,86.51,87.29,86.51,86.21,,[literature; not re-run],Direct,Ouyang et al.,
-FoB Baseline (re-run),This work,2026,Setting I,1-shot,84.34,85.62,85.91,87.08,85.74,30.0,[this work; re-run],Modified protocol (*),Whole-corpus z-score,See preprocessing deviation note
-FoB + LoRA (ours),This work,2026,Setting I,1-shot,88.22,84.89,87.99,94.09,88.80,28.4,[this work; re-run],Modified protocol (*),Whole-corpus z-score,See preprocessing deviation note
-AdaFoB + LoRA (ours),This work,2026,Setting I,1-shot,88.31,84.92,87.37,94.18,88.70,30.5,[this work; re-run],Modified protocol (*),Whole-corpus z-score,See preprocessing deviation note
-Fixed-Mean-Budget + LoRA,This work,2026,Setting I,1-shot,88.19,84.64,87.40,94.24,88.62,39.0,[this work; re-run],Modified protocol (*),Whole-corpus z-score,Control experiment; per-organ fixed Np
+FoB Baseline (re-run),This work,2026,Setting I,1-shot,84.34,85.62,85.91,87.08,85.74,28.05,[this work; re-run],Modified protocol (*),Whole-corpus z-score,Deterministic frozen ViT-H evaluation
+FoB + LoRA (ours),This work,2026,In-domain Adaptation,1-shot,87.79,85.97,87.14,94.98,88.97,32.13,[this work; clean seed 42],SCOPE MISMATCH vs Setting I (*),Whole-corpus z-score,Target organs seen in training folds; only volumes held out
+AdaFoB + LoRA (ours),This work,2026,In-domain Adaptation,1-shot,88.18,85.53,87.45,94.96,89.03,30.12,[this work; clean seed 42],SCOPE MISMATCH vs Setting I (*),Whole-corpus z-score,Target organs seen in training folds; only volumes held out
+Fixed-Mean-Budget + LoRA,This work,2026,In-domain Adaptation,1-shot,88.19,84.64,87.40,94.24,88.62,39.0,[historical unseeded run],SCOPE MISMATCH vs Setting I (*),Whole-corpus z-score,Pending clean re-evaluation on Kaggle
 SAMed (ViT-B),MICCAI'23,2023,Fully Supervised,N/A,89.09,79.91,80.49,93.68,81.88,20.64,[literature; not re-run],SCOPE MISMATCH: Fully supervised 18/12 split,Standard Synapse,Not comparable to few-shot
 MedSAM,Nat Comm'24,2024,Interactive BBox,N/A,~90.0,~90.5,~89.2,~95.8,~89.0,,[literature; not re-run],SCOPE MISMATCH: GT bounding box prompts,Multi-dataset,Not comparable to few-shot
 SAM-Med2D,MedIA'24,2024,Interactive Pts,N/A,~88.4,~86.2,~85.9,~94.1,~87.5,,[literature; not re-run],SCOPE MISMATCH: Interactive prompts,4.6M images,Not comparable to few-shot

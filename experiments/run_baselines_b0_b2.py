@@ -45,8 +45,9 @@ from dataloaders.dataset_specifics import get_label_names
 from segment_anything import sam_model_registry, SamPredictor
 from models.postprocessing import filter_connected_components
 
-# Expected hash of manifest
-EXPECTED_MANIFEST_SHA256 = "3298b6b6b649c72658aaa24ae47fe372c6ee66d01e298497d76ca313c11fe3ac"
+# Expected hash of manifest (supports both Linux LF and Windows CRLF)
+EXPECTED_MANIFEST_LF_SHA256 = "ac2cc5df4a19e7ace297086f75f5385cc05cb2c9decbeec1cd7d321e628e3ad6"
+EXPECTED_MANIFEST_CRLF_SHA256 = "3298b6b6b649c72658aaa24ae47fe372c6ee66d01e298497d76ca313c11fe3ac"
 TEST_LABELS = [1, 2, 3, 6]  # SPLEEN, RK, LK, LIVER
 SUPP_IDX = 2
 N_PART = 3
@@ -56,12 +57,17 @@ def verify_manifest(manifest_path):
     if not os.path.exists(manifest_path):
         raise FileNotFoundError(f"Manifest not found at {manifest_path}")
     with open(manifest_path, "rb") as f:
-        file_hash = hashlib.sha256(f.read()).hexdigest()
-    if file_hash != EXPECTED_MANIFEST_SHA256:
+        raw_bytes = f.read()
+    raw_hash = hashlib.sha256(raw_bytes).hexdigest()
+    lf_bytes = raw_bytes.replace(b"\r\n", b"\n")
+    lf_hash = hashlib.sha256(lf_bytes).hexdigest()
+
+    if raw_hash in (EXPECTED_MANIFEST_CRLF_SHA256, EXPECTED_MANIFEST_LF_SHA256) or lf_hash == EXPECTED_MANIFEST_LF_SHA256:
+        print(f"[Verified] Manifest SHA256 verified (raw: {raw_hash}, normalized LF: {lf_hash})")
+    else:
         raise ValueError(
-            f"Manifest SHA256 mismatch!\nExpected: {EXPECTED_MANIFEST_SHA256}\nFound:    {file_hash}\nRefusing to run."
+            f"Manifest SHA256 mismatch!\nExpected LF: {EXPECTED_MANIFEST_LF_SHA256}\nFound raw:   {raw_hash}\nNormalized:  {lf_hash}\nRefusing to run."
         )
-    print(f"[Verified] Manifest SHA256 verified: {file_hash}")
 
 
 def find_file(pattern_list):
