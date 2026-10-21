@@ -166,7 +166,7 @@ def independent_metric_check(pred, gt, spacing):
     return float(2.0 * inter / (p.sum() + g.sum()))
 
 
-def predict_sam(predictor, pos_pts, neg_pts, img_shape):
+def predict_sam(predictor, pos_pts, neg_pts, img_shape, mask_select="fixed0"):
     pts = []
     lbls = []
     if pos_pts is not None and len(pos_pts) > 0:
@@ -188,8 +188,10 @@ def predict_sam(predictor, pos_pts, neg_pts, img_shape):
             point_labels=all_lbls,
             multimask_output=True,
         )
-        return (masks[np.argmax(scores)] > 0).astype(np.uint8)
-    except Exception:
+        idx = 0 if mask_select == "fixed0" else int(np.argmax(scores))
+        return (masks[idx] > 0).astype(np.uint8)
+    except Exception as e:
+        print(f"Warning: SAM prediction exception: {e}")
         return np.zeros(img_shape[:2], dtype=np.uint8)
 
 
@@ -297,7 +299,17 @@ def main():
         fob_args.n_shots = 1
         fob_model = FewShotSeg(fob_args).to(device).eval()
         ckpt = torch.load(fob_ckpt_path, map_location=device)
-        fob_model.load_state_dict(ckpt["state_dict"] if "state_dict" in ckpt else ckpt, strict=False)
+        raw_sd = ckpt["state_dict"] if "state_dict" in ckpt else (ckpt["model"] if "model" in ckpt else ckpt)
+        cleaned_sd = {}
+        for k, v in raw_sd.items():
+            nk = k
+            for pref in ("module.", "_orig_mod."):
+                if nk.startswith(pref):
+                    nk = nk[len(pref):]
+            cleaned_sd[nk] = v
+        missing, unexpected = fob_model.load_state_dict(cleaned_sd, strict=False)
+        matched_count = len(set(cleaned_sd.keys()) & set(fob_model.state_dict().keys()))
+        print(f"[FoB] Loaded {fob_ckpt_path}: matched {matched_count}/{len(fob_model.state_dict())} keys (missing={len(missing)}, unexpected={len(unexpected)})")
         fob_model.allocator = None  # Upstream FoB fixed 10-point ring
 
         data_config = {
@@ -330,8 +342,9 @@ def main():
                 ep_id = int(ep_row['episode_id'])
                 spacing = (float(ep_row['spacing_x']), float(ep_row['spacing_y']), float(ep_row['spacing_z']))
 
-                query_images = sample['image'].to(device)
-                query_labels = sample['label'].to(device)
+                # Ensure float32 for query image (prevents DoubleTensor vs FloatTensor mismatch)
+                query_images = sample['image'].float().to(device)
+                query_labels = sample['label'].long().to(device)
                 C_q = query_images.shape[1]
                 H_q, W_q = query_images.shape[-2], query_images.shape[-1]
 
@@ -361,20 +374,23 @@ def main():
                             q_img_slice = query_image_chunk[[j]]
                             q_lbl_slice = query_label_chunk[[j]]
 
-                            if support_image_s[0].max() == 0 or q_lbl_slice.max() == 0:
+                            if support_image_s[0].max() == 0:
                                 pos_arr = np.zeros((0, 2))
                                 neg_arr = np.zeros((0, 2))
                             else:
+                                # Invariant dummy query label: satisfies FoB qry_labels.max() > 0 without reading query GT
+                                dummy_lbl = torch.ones_like(q_img_slice[:, 0]).long()
                                 try:
                                     fob_out = fob_model(
                                         [support_image_s], [support_fg_mask_s],
-                                        [q_img_slice], q_lbl_slice,
+                                        [q_img_slice], dummy_lbl,
                                         train=False, use_skeleton=False, budget_Np=10
                                     )
                                     uni_neg_all, pos_all = fob_out[0], fob_out[1]
                                     neg_arr = np.array(uni_neg_all).reshape(-1, 2)[:10]
                                     pos_arr = np.array(pos_all).reshape(-1, 2)[:10]
-                                except Exception:
+                                except Exception as e:
+                                    print(f"Warning: FoB forward exception at slice {global_z}: {e}")
                                     pos_arr = np.zeros((0, 2))
                                     neg_arr = np.zeros((0, 2))
 
