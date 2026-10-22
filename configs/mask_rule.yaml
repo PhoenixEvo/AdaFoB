@@ -1,0 +1,20 @@
+# AdaFoB Research Project - Frozen Label-Free Mask Selection Rule
+# Pre-registered and frozen per Auditor Protocol Step 4.A
+# Rationale:
+# 1. Architectural alignment: Uses SAM's dedicated non-ambiguous prompt token (Token 0).
+# 2. Author recommendation: Meta AI (Kirillov et al., 2023, predictor.py:119-120) explicitly
+#    recommends multimask_output=False for disambiguated multi-point input prompts.
+# 3. Development split validation: On 100% disjoint development subjects (protocol/dev_split.csv),
+#    R1 (SingleMask) consistently outperforms R2 (ArgmaxScore) and R3 (mask[0]) across all organs:
+#    - Spleen: R1 (61.86%) vs R2 (46.84%) vs R3 (38.59%)
+#    - Right Kidney: R1 (77.89%) vs R2 (71.78%) vs R3 (57.09%)
+#    - Left Kidney: R1 (89.27%) vs R2 (86.53%) vs R3 (60.28%)
+# 4. Zero label leakage: Evaluated label-free at inference without reading query ground truth.
+
+rule_id: "R1"
+rule_name: "SingleMask"
+multimask_output: false
+mask_index: 0
+provenance: "Meta AI Segment Anything (Kirillov et al., 2023) / Disjoint Dev Validation (protocol/dev_split.csv)"
+frozen_commit: "1ac5fbde9a181fcaa06235d7a810b545588cf5a8"
+date_frozen: "2026-10-22"

@@ -1,0 +1,6 @@
+patient_id,role,source,notes
+image_2,dev,SABS,"Support volume for Fold 0 in 5-fold cross-validation; strictly excluded from evaluation queries in protocol/paired_episode_manifest.csv"
+image_8,dev,SABS,"Support volume for Fold 1 in 5-fold cross-validation; strictly excluded from evaluation queries in protocol/paired_episode_manifest.csv"
+image_14,dev,SABS,"Support volume for Fold 2 in 5-fold cross-validation; strictly excluded from evaluation queries in protocol/paired_episode_manifest.csv"
+image_20,dev,SABS,"Support volume for Fold 3 in 5-fold cross-validation; strictly excluded from evaluation queries in protocol/paired_episode_manifest.csv"
+image_25,dev,SABS,"Support volume for Fold 4 in 5-fold cross-validation; strictly excluded from evaluation queries in protocol/paired_episode_manifest.csv"
