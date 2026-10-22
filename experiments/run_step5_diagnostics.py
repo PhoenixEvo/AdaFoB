@@ -85,6 +85,14 @@ def ensure_checkpoints(ckpt_dir, sam_b_path):
         urllib.request.urlretrieve("https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth", sam_b_path)
 
 
+def filter_volume_cc(vol_3d, pos_by_z):
+    vol_cc = np.zeros_like(vol_3d)
+    for z in range(vol_3d.shape[0]):
+        pts = pos_by_z.get(z, None)
+        vol_cc[z] = filter_connected_components(vol_3d[z], pts)
+    return vol_cc
+
+
 def compute_volume_metrics(pred, gt, spacing):
     pred_bin = (pred > 0).astype(bool)
     gt_bin = (gt > 0).astype(bool)
@@ -269,10 +277,11 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                     for s in RANDOM_SEEDS:
                         vols[f'rand_k{k}_s{s}'] = np.zeros((C_q, H_q, W_q), dtype=np.uint8)
 
-                # Episode prompt audit counters
+                # Episode prompt audit counters and prompt cache
                 ep_pos_total, ep_pos_outside = 0, 0
                 ep_neg_total, ep_neg_inside = 0, 0
                 ep_neg_distances_mm = []
+                pos_points_by_z = {}
 
                 idx_ = np.linspace(0, C_q, N_PART + 1).astype(int)
 
@@ -304,6 +313,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                                 )
                                 neg_arr = np.array(fob_out[0]).reshape(-1, 2)[:10]
                                 pos_arr = np.array(fob_out[1]).reshape(-1, 2)[:10]
+                            pos_points_by_z[global_z] = pos_arr
 
                             # Distance transform for spatial surface distance in mm
                             gt_slice_bool = (gt_slice > 0)
@@ -411,7 +421,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                 # Evaluate volume metrics for each arm (Raw and CC)
                 for arm_key in ['k0', 'k2', 'k4', 'k6', 'k10', 'prefix_oracle', 'greedy_oracle']:
                     vol_raw = vols[arm_key]
-                    vol_cc = filter_connected_components(vol_raw)
+                    vol_cc = filter_volume_cc(vol_raw, pos_points_by_z)
                     d_raw, h_raw = compute_volume_metrics(vol_raw, gt_vol_np, spacing)
                     d_cc, h_cc = compute_volume_metrics(vol_cc, gt_vol_np, spacing)
                     row_metrics[f'dice_{arm_key}_raw'] = d_raw
@@ -425,7 +435,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                     rand_hds_raw, rand_hds_cc = [], []
                     for s in RANDOM_SEEDS:
                         vol_raw = vols[f'rand_k{k}_s{s}']
-                        vol_cc = filter_connected_components(vol_raw)
+                        vol_cc = filter_volume_cc(vol_raw, pos_points_by_z)
                         d_r, h_r = compute_volume_metrics(vol_raw, gt_vol_np, spacing)
                         d_c, h_c = compute_volume_metrics(vol_cc, gt_vol_np, spacing)
                         rand_dices_raw.append(d_r)
