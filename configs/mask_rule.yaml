@@ -16,5 +16,5 @@ rule_name: "SingleMask"
 multimask_output: false
 mask_index: 0
 provenance: "Meta AI Segment Anything (Kirillov et al., 2023) / Disjoint Dev Validation (protocol/dev_split.csv)"
-frozen_commit: "1ac5fbde9a181fcaa06235d7a810b545588cf5a8"
+frozen_commit: "24e35bd"
 date_frozen: "2026-10-22"
