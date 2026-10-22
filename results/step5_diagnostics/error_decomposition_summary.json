@@ -1,0 +1,240 @@
+{
+  "B0_ViTH_R3_CC": {
+    "LIVER": {
+      "n_episodes": 30,
+      "dice_mean": 87.3869318581684,
+      "dice_median": 89.27513087699465,
+      "hd95_mean": 24.644079787114507,
+      "hd95_median": 21.023608725322802,
+      "hd95_p90": 36.346206163841096,
+      "h95_leakage_mean": 19.541888216928704,
+      "h95_missed_mean": 17.27163214762636,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 16,
+        "Under-segmentation / Missed parts": 13,
+        "Balanced": 1
+      },
+      "mean_gt_voxels": 253739.3,
+      "mean_boundary_leakage_vox": 11381.666666666666,
+      "mean_wrong_organ_vox": 5239.066666666667,
+      "mean_detached_islands_vox": 10711.3,
+      "mean_missed_vox": 43327.1,
+      "boundary_leak_frac_gt_pct": 4.816989263371371,
+      "wrong_organ_frac_gt_pct": 2.1306550882140334,
+      "detached_frac_gt_pct": 4.295985455635593,
+      "missed_frac_gt_pct": 15.916411854396312
+    },
+    "RK": {
+      "n_episodes": 30,
+      "dice_mean": 86.04870949737561,
+      "dice_median": 88.94565404027193,
+      "hd95_mean": 23.778417295235915,
+      "hd95_median": 13.738957534066017,
+      "hd95_p90": 55.03698204337053,
+      "h95_leakage_mean": 28.323750487798748,
+      "h95_missed_mean": 2.565860141817711,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 26,
+        "Under-segmentation / Missed parts": 3,
+        "Balanced": 1
+      },
+      "mean_gt_voxels": 23603.933333333334,
+      "mean_boundary_leakage_vox": 3039.233333333333,
+      "mean_wrong_organ_vox": 861.3,
+      "mean_detached_islands_vox": 740.4666666666667,
+      "mean_missed_vox": 1903.1,
+      "boundary_leak_frac_gt_pct": 22.378438285935946,
+      "wrong_organ_frac_gt_pct": 4.182863690577359,
+      "detached_frac_gt_pct": 5.504730459686911,
+      "missed_frac_gt_pct": 6.790211596601613
+    },
+    "LK": {
+      "n_episodes": 30,
+      "dice_mean": 86.2937264248257,
+      "dice_median": 89.46899368589925,
+      "hd95_mean": 22.17595634555821,
+      "hd95_median": 14.937772996422385,
+      "hd95_p90": 40.99784145022593,
+      "h95_leakage_mean": 27.17724721677009,
+      "h95_missed_mean": 2.244232411479354,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 29,
+        "Under-segmentation / Missed parts": 1
+      },
+      "mean_gt_voxels": 22744.233333333334,
+      "mean_boundary_leakage_vox": 2877.5333333333333,
+      "mean_wrong_organ_vox": 1143.4333333333334,
+      "mean_detached_islands_vox": 1578.3333333333333,
+      "mean_missed_vox": 862.8,
+      "boundary_leak_frac_gt_pct": 13.716980620132762,
+      "wrong_organ_frac_gt_pct": 20.093075717316818,
+      "detached_frac_gt_pct": 30.354057315148403,
+      "missed_frac_gt_pct": 5.729925323116776
+    },
+    "SPLEEN": {
+      "n_episodes": 30,
+      "dice_mean": 85.04255705919464,
+      "dice_median": 92.62491177314796,
+      "hd95_mean": 29.804261378444725,
+      "hd95_median": 18.621379311411587,
+      "hd95_p90": 77.0254581837661,
+      "h95_leakage_mean": 34.450516075137706,
+      "h95_missed_mean": 4.031968598384266,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 24,
+        "Balanced": 5,
+        "Under-segmentation / Missed parts": 1
+      },
+      "mean_gt_voxels": 36609.26666666667,
+      "mean_boundary_leakage_vox": 2517.866666666667,
+      "mean_wrong_organ_vox": 3966.8,
+      "mean_detached_islands_vox": 3105.866666666667,
+      "mean_missed_vox": 2909.5,
+      "boundary_leak_frac_gt_pct": 7.806424952434651,
+      "wrong_organ_frac_gt_pct": 18.705942769588134,
+      "detached_frac_gt_pct": 14.27835035023904,
+      "missed_frac_gt_pct": 8.380122883564143
+    },
+    "OVERALL": {
+      "n_episodes": 120,
+      "dice_mean": 86.19298120989109,
+      "dice_median": 89.42266523054417,
+      "hd95_mean": 25.10067870158834,
+      "hd95_median": 19.204412881840504,
+      "hd95_p90": 55.7238563003887,
+      "h95_leakage_mean": 27.373350499158814,
+      "h95_missed_mean": 6.528423324826923,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 95,
+        "Under-segmentation / Missed parts": 18,
+        "Balanced": 7
+      },
+      "mean_gt_voxels": 84174.18333333333,
+      "mean_boundary_leakage_vox": 4954.075,
+      "mean_wrong_organ_vox": 2802.65,
+      "mean_detached_islands_vox": 4033.991666666667,
+      "mean_missed_vox": 12250.625,
+      "boundary_leak_frac_gt_pct": 12.179708280468683,
+      "wrong_organ_frac_gt_pct": 11.278134316424085,
+      "detached_frac_gt_pct": 13.608280895177488,
+      "missed_frac_gt_pct": 9.204167914419711
+    }
+  },
+  "B3B_ViTB_R1_CC": {
+    "LIVER": {
+      "n_episodes": 30,
+      "dice_mean": 84.40215792107925,
+      "dice_median": 86.08530542287194,
+      "hd95_mean": 40.96093433074691,
+      "hd95_median": 30.645677523555612,
+      "hd95_p90": 82.10173379643913,
+      "h95_leakage_mean": 46.21884425400015,
+      "h95_missed_mean": 7.9875256228656015,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 29,
+        "Under-segmentation / Missed parts": 1
+      },
+      "mean_gt_voxels": 253739.3,
+      "mean_boundary_leakage_vox": 44974.63333333333,
+      "mean_wrong_organ_vox": 18971.2,
+      "mean_detached_islands_vox": 42578.6,
+      "mean_missed_vox": 22279.633333333335,
+      "boundary_leak_frac_gt_pct": 19.339393864421666,
+      "wrong_organ_frac_gt_pct": 7.838433581896728,
+      "detached_frac_gt_pct": 18.04219794056315,
+      "missed_frac_gt_pct": 8.095135040880848
+    },
+    "RK": {
+      "n_episodes": 30,
+      "dice_mean": 83.709071891014,
+      "dice_median": 86.5916385285054,
+      "hd95_mean": 28.542411596374183,
+      "hd95_median": 21.350130514556017,
+      "hd95_p90": 49.365576511072625,
+      "h95_leakage_mean": 33.708578495763604,
+      "h95_missed_mean": 1.0713050632697145,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 29,
+        "Balanced": 1
+      },
+      "mean_gt_voxels": 23603.933333333334,
+      "mean_boundary_leakage_vox": 5011.9,
+      "mean_wrong_organ_vox": 1318.2666666666667,
+      "mean_detached_islands_vox": 1910.6,
+      "mean_missed_vox": 889.5,
+      "boundary_leak_frac_gt_pct": 40.11244738456529,
+      "wrong_organ_frac_gt_pct": 6.203657172101007,
+      "detached_frac_gt_pct": 11.361286673182192,
+      "missed_frac_gt_pct": 3.0809329701294668
+    },
+    "LK": {
+      "n_episodes": 30,
+      "dice_mean": 82.97537269978173,
+      "dice_median": 85.55637295527674,
+      "hd95_mean": 25.967536433382218,
+      "hd95_median": 21.168566621146702,
+      "hd95_p90": 42.718788701839415,
+      "h95_leakage_mean": 31.965322360564823,
+      "h95_missed_mean": 1.2467478485147108,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 30
+      },
+      "mean_gt_voxels": 22744.233333333334,
+      "mean_boundary_leakage_vox": 5261.933333333333,
+      "mean_wrong_organ_vox": 1683.6666666666667,
+      "mean_detached_islands_vox": 2766.4333333333334,
+      "mean_missed_vox": 461.4,
+      "boundary_leak_frac_gt_pct": 23.749774526665313,
+      "wrong_organ_frac_gt_pct": 22.572112642146635,
+      "detached_frac_gt_pct": 43.65210561009103,
+      "missed_frac_gt_pct": 3.89094516046953
+    },
+    "SPLEEN": {
+      "n_episodes": 30,
+      "dice_mean": 79.11030590723398,
+      "dice_median": 86.24326383424507,
+      "hd95_mean": 45.23353258512847,
+      "hd95_median": 33.237832078071435,
+      "hd95_p90": 106.67562942923361,
+      "h95_leakage_mean": 49.74026322322863,
+      "h95_missed_mean": 3.5042949389272384,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 29,
+        "Balanced": 1
+      },
+      "mean_gt_voxels": 36609.26666666667,
+      "mean_boundary_leakage_vox": 5932.533333333334,
+      "mean_wrong_organ_vox": 8047.3,
+      "mean_detached_islands_vox": 5813.8,
+      "mean_missed_vox": 1965.8,
+      "boundary_leak_frac_gt_pct": 19.215254711470998,
+      "wrong_organ_frac_gt_pct": 33.990073756343726,
+      "detached_frac_gt_pct": 22.353534419035526,
+      "missed_frac_gt_pct": 6.001992790778183
+    },
+    "OVERALL": {
+      "n_episodes": 120,
+      "dice_mean": 82.54922710477724,
+      "dice_median": 86.24424489037801,
+      "hd95_mean": 35.176103736407946,
+      "hd95_median": 28.25991246490947,
+      "hd95_p90": 81.03072097082595,
+      "h95_leakage_mean": 40.40825208338931,
+      "h95_missed_mean": 3.452468368394316,
+      "hd95_driver_counts": {
+        "Over-segmentation / Leakage": 117,
+        "Balanced": 2,
+        "Under-segmentation / Missed parts": 1
+      },
+      "mean_gt_voxels": 84174.18333333333,
+      "mean_boundary_leakage_vox": 15295.25,
+      "mean_wrong_organ_vox": 7505.108333333334,
+      "mean_detached_islands_vox": 13267.358333333334,
+      "mean_missed_vox": 6399.083333333333,
+      "boundary_leak_frac_gt_pct": 25.604217621780816,
+      "wrong_organ_frac_gt_pct": 17.651069288122024,
+      "detached_frac_gt_pct": 23.852281160717975,
+      "missed_frac_gt_pct": 5.267251490564507
+    }
+  }
+}

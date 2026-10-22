@@ -1,0 +1,76 @@
+{
+  "cohort_overview": {
+    "total_episodes": 120,
+    "total_positive_points": 37221,
+    "positive_points_outside_gt": 3726,
+    "positive_outside_pct": 10.010477955992584,
+    "total_negative_points": 40087,
+    "negative_points_inside_gt": 27,
+    "negative_contamination_pct": 0.06735350612417991,
+    "distance_bins_count": {
+      "inside_gt_negative": 27,
+      "0_to_5mm": 312,
+      "5_to_10mm": 1909,
+      "10_to_20mm": 17490,
+      "gt_20mm": 20349
+    },
+    "distance_bins_pct": {
+      "inside_gt_negative": 0.06735350612417991,
+      "0_to_5mm": 0.7783071818794123,
+      "5_to_10mm": 4.76214234040961,
+      "10_to_20mm": 43.63010452266321,
+      "gt_20mm": 50.76209244892359
+    }
+  },
+  "per_organ": {
+    "LIVER": {
+      "n_episodes": 30,
+      "positive_points_total": 13690,
+      "positive_outside_pct": 6.961285609934259,
+      "negative_points_total": 14937,
+      "negative_contamination_pct": 0.033473923813349404,
+      "dist_inside_cnt": 5,
+      "dist_0_5mm_cnt": 190,
+      "dist_5_10mm_cnt": 531,
+      "dist_10_20mm_cnt": 2994,
+      "dist_gt20mm_cnt": 11217
+    },
+    "RK": {
+      "n_episodes": 30,
+      "positive_points_total": 8214,
+      "positive_outside_pct": 10.336011687363039,
+      "negative_points_total": 8610,
+      "negative_contamination_pct": 0.08130081300813008,
+      "dist_inside_cnt": 7,
+      "dist_0_5mm_cnt": 58,
+      "dist_5_10mm_cnt": 542,
+      "dist_10_20mm_cnt": 5377,
+      "dist_gt20mm_cnt": 2626
+    },
+    "LK": {
+      "n_episodes": 30,
+      "positive_points_total": 8277,
+      "positive_outside_pct": 12.444122266521687,
+      "negative_points_total": 8740,
+      "negative_contamination_pct": 0.011441647597254006,
+      "dist_inside_cnt": 1,
+      "dist_0_5mm_cnt": 33,
+      "dist_5_10mm_cnt": 545,
+      "dist_10_20mm_cnt": 5463,
+      "dist_gt20mm_cnt": 2698
+    },
+    "SPLEEN": {
+      "n_episodes": 30,
+      "positive_points_total": 7040,
+      "positive_outside_pct": 12.698863636363637,
+      "negative_points_total": 7800,
+      "negative_contamination_pct": 0.1794871794871795,
+      "dist_inside_cnt": 14,
+      "dist_0_5mm_cnt": 31,
+      "dist_5_10mm_cnt": 291,
+      "dist_10_20mm_cnt": 3656,
+      "dist_gt20mm_cnt": 3808
+    }
+  },
+  "high_contamination_cases": []
+}

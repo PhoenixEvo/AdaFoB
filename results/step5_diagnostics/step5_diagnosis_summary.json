@@ -1,0 +1,185 @@
+{
+  "cohort_size": 120,
+  "budget_sensitivity": {
+    "k0": {
+      "dice_raw_mean": 80.9511968234634,
+      "dice_raw_median": 84.07455305247855,
+      "dice_cc_mean": 81.3290523695687,
+      "dice_cc_median": 84.65226631006426,
+      "hd95_cc_mean": 44.42436410782041,
+      "hd95_cc_median": 32.00650151892288,
+      "hd95_cc_p90": 93.11273757474592
+    },
+    "k2": {
+      "dice_raw_mean": 81.60265074299801,
+      "dice_raw_median": 85.32436967563667,
+      "dice_cc_mean": 82.33244169618366,
+      "dice_cc_median": 86.27433946134181,
+      "hd95_cc_mean": 36.48003199536245,
+      "hd95_cc_median": 25.890010919516705,
+      "hd95_cc_p90": 76.89641215810659
+    },
+    "k4": {
+      "dice_raw_mean": 80.69995125513412,
+      "dice_raw_median": 83.78848763665539,
+      "dice_cc_mean": 81.97431541706058,
+      "dice_cc_median": 85.09360145183842,
+      "hd95_cc_mean": 36.938483464969586,
+      "hd95_cc_median": 28.794714487382894,
+      "hd95_cc_p90": 79.67532913715641
+    },
+    "k6": {
+      "dice_raw_mean": 80.1635845630788,
+      "dice_raw_median": 83.50971092292285,
+      "dice_cc_mean": 81.96741334658502,
+      "dice_cc_median": 85.42497121045882,
+      "hd95_cc_mean": 37.95885898752828,
+      "hd95_cc_median": 28.853965746496513,
+      "hd95_cc_p90": 78.28975670913177
+    },
+    "k10": {
+      "dice_raw_mean": 79.47142993164374,
+      "dice_raw_median": 83.43200561914512,
+      "dice_cc_mean": 82.54922710477724,
+      "dice_cc_median": 86.24424489037801,
+      "hd95_cc_mean": 35.176103736407946,
+      "hd95_cc_median": 28.25991246490947,
+      "hd95_cc_p90": 81.03072097082595
+    },
+    "rand_k2": {
+      "dice_raw_mean": 82.6003001875253,
+      "dice_cc_mean": 83.26282604813699,
+      "dice_cc_median": 83.262826048137,
+      "hd95_cc_mean": 35.47959077375093
+    },
+    "rand_k4": {
+      "dice_raw_mean": 82.19850427535394,
+      "dice_cc_mean": 83.22241774090354,
+      "dice_cc_median": 83.22241774090355,
+      "hd95_cc_mean": 34.60887988493148
+    },
+    "rand_k6": {
+      "dice_raw_mean": 81.39585586402899,
+      "dice_cc_mean": 82.94771566677306,
+      "dice_cc_median": 82.94771566677308,
+      "hd95_cc_mean": 34.152359133352554
+    }
+  },
+  "oracle_analysis": {
+    "prefix_oracle": {
+      "dice_raw_mean": 84.75448699512201,
+      "dice_raw_median": 87.39797346162376,
+      "dice_cc_mean": 85.30948170853367,
+      "dice_cc_median": 88.51304884945375,
+      "hd95_cc_mean": 29.923902046125516,
+      "hd95_cc_median": 21.929160769586122,
+      "hd95_cc_p90": 64.33346797414931,
+      "gain_over_k10_cc_mean": 2.760254603756428,
+      "gain_over_k10_cc_median": 1.8924751222468783
+    },
+    "greedy_oracle": {
+      "dice_raw_mean": 86.8973733519089,
+      "dice_raw_median": 90.13824059140325,
+      "dice_cc_mean": 87.04402790060146,
+      "dice_cc_median": 90.34489238772272,
+      "hd95_cc_mean": 27.882198204506306,
+      "hd95_cc_median": 17.838885072938695,
+      "hd95_cc_p90": 62.871370915495696,
+      "gain_over_k10_cc_mean": 4.49480079582423,
+      "gain_over_k10_cc_median": 3.2102437735563596,
+      "bootstrap_ci_95": [
+        3.7180860141971124,
+        5.344921313055126
+      ]
+    }
+  },
+  "prompt_audit": {
+    "overall": {
+      "pos_points_total": 37221,
+      "pos_points_outside": 3734,
+      "pos_outside_pct": 10.031971199054297,
+      "neg_points_total": 40087,
+      "neg_points_inside": 27,
+      "neg_contamination_pct": 0.06735350612417991,
+      "dist_inside_cnt": 27,
+      "dist_0_5mm_cnt": 312,
+      "dist_5_10mm_cnt": 1909,
+      "dist_10_20mm_cnt": 17483,
+      "dist_gt20mm_cnt": 20356
+    },
+    "per_organ": {
+      "LIVER": {
+        "pos_outside_pct": 6.968590211833455,
+        "neg_contamination_pct": 0.033473923813349404,
+        "dist_inside_cnt": 5,
+        "dist_0_5mm_cnt": 190,
+        "dist_5_10mm_cnt": 531,
+        "dist_10_20mm_cnt": 2989,
+        "dist_gt20mm_cnt": 11222
+      },
+      "RK": {
+        "pos_outside_pct": 10.421232042853665,
+        "neg_contamination_pct": 0.08130081300813008,
+        "dist_inside_cnt": 7,
+        "dist_0_5mm_cnt": 58,
+        "dist_5_10mm_cnt": 542,
+        "dist_10_20mm_cnt": 5377,
+        "dist_gt20mm_cnt": 2626
+      },
+      "LK": {
+        "pos_outside_pct": 12.432040594418266,
+        "neg_contamination_pct": 0.011441647597254006,
+        "dist_inside_cnt": 1,
+        "dist_0_5mm_cnt": 33,
+        "dist_5_10mm_cnt": 544,
+        "dist_10_20mm_cnt": 5462,
+        "dist_gt20mm_cnt": 2700
+      },
+      "SPLEEN": {
+        "pos_outside_pct": 12.713068181818182,
+        "neg_contamination_pct": 0.1794871794871795,
+        "dist_inside_cnt": 14,
+        "dist_0_5mm_cnt": 31,
+        "dist_5_10mm_cnt": 292,
+        "dist_10_20mm_cnt": 3655,
+        "dist_gt20mm_cnt": 3808
+      }
+    },
+    "high_contamination_cases": []
+  },
+  "decision_table": {
+    "levers": [
+      {
+        "lever": "Better Prompt Selection (Greedy Oracle vs Fixed-10)",
+        "effect_size_dice_pp": 4.49480079582423,
+        "rank": 1
+      },
+      {
+        "lever": "Token Selection / Backbone Calibration (mask[0] vs SingleMask)",
+        "effect_size_dice_pp": 3.64,
+        "rank": 2
+      },
+      {
+        "lever": "Connected-Component Post-Processing (CC vs Raw)",
+        "effect_size_dice_pp": 3.0777971731334843,
+        "rank": 3
+      },
+      {
+        "lever": "Reducing Budget (K10 vs Fixed-10)",
+        "effect_size_dice_pp": 0.0,
+        "rank": 4
+      }
+    ]
+  },
+  "conclusion": {
+    "gap_exists": "YES",
+    "reason": "Greedy oracle ceiling gain (4.49 pp, 95% CI [3.72, 5.34]) exceeds the 3.0 pp threshold. Prompt selection has a substantial target.",
+    "oracle_dice_mean": 87.04402790060146,
+    "fixed10_dice_mean": 82.54922710477724,
+    "gain_mean": 4.49480079582423,
+    "bootstrap_ci_95": [
+      3.7180860141971124,
+      5.344921313055126
+    ]
+  }
+}
