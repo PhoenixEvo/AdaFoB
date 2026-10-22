@@ -1,0 +1,36 @@
+{
+  "n_slices": 4009,
+  "n_patients": 25,
+  "bivariate_pearson_r": -0.4344263934721967,
+  "bivariate_pearson_ci": [
+    -0.5023907977845655,
+    -0.36880757115931634
+  ],
+  "bivariate_pearson_p": 3.013090570972617e-184,
+  "bivariate_spearman_rho": -0.41279202001067444,
+  "bivariate_spearman_ci": [
+    -0.5051059377000346,
+    -0.3194361856645876
+  ],
+  "partial_pearson_r": -0.07792521488226993,
+  "partial_pearson_ci": [
+    -0.1468822018765879,
+    -0.005878318717572702
+  ],
+  "partial_pearson_p": 7.814709886048995e-07,
+  "controlled_covariates": [
+    "organ_type",
+    "pred_area",
+    "longitudinal_rel_z"
+  ],
+  "n_boundary_segments": 3762,
+  "mean_grad_intact_boundary": 111.80351884949087,
+  "mean_grad_leak_boundary": 115.08478875476462,
+  "mean_segment_diff": 3.281269905273741,
+  "segment_diff_ci": [
+    -0.013105585991340298,
+    6.704997931766095
+  ],
+  "segment_p_value": 6.960069184684999e-05,
+  "cohens_d": 0.06492360552708595
+}
