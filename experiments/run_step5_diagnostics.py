@@ -261,7 +261,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                 query_labels = sample['label'].long()
                 C_q = query_images.shape[1]
                 H_q, W_q = query_images.shape[-2], query_images.shape[-1]
-                gt_vol_np = (query_labels[0].squeeze(1).numpy() == label_val).astype(np.uint8)
+                gt_vol_np = (query_labels[0].squeeze(1).numpy() > 0).astype(np.uint8)
 
                 # Initialize 3D prediction volumes
                 vols = {
