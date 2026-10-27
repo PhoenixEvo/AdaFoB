@@ -1,0 +1,15 @@
+# Route B: base-label development amendment v1
+
+Approval status: APPROVED. The project owner is the sole decision-maker; no external advisor or approver exists. Owner approval date: 2026-10-25. UTC commit timestamp: 2026-10-25T13:31:12Z.
+
+This explicitly deviates from the verified FoB Setting I script (USE_GT=False): anatomical BASE labels class 4 gallbladder, 7 stomach, 8 aorta and 11 pancreas may be used for development-only retrospective evaluation of fixed hand-designed label-free rules, and to choose only one global negative budget k in a separately declared development experiment. This pilot fixes k=2 before outcomes; no budget search occurs here. No model training, learned-score calibration, other parameter tuning, novel-organ label use (1 spleen, 2 right kidney, 3 left kidney, 6 liver), or saved oracle targets are permitted for rule construction. These results will be reported separately from Setting I benchmark results.
+
+Supervoxel proxies cannot establish organ-boundary utility: supervoxel IDs lack anatomical semantic correspondence across patients. The approved anatomical route replaces that proposed route, without retroactively altering historical entitlement rows or benchmark claims.
+
+Construction patient image_8, check patient image_20, support volume image_14. All are outside cv0 held-out patients 0..6. They have prior analyst exposure and are not untouched; their unlabeled images may have been included in FoB training. One support slice per base organ, from image_14, is permitted for this amended pilot. No extra support labels are consumed. Up to four query slices per construction/check patient. Labels select the organ-positive axial extent median only, then retrospectively score predictions after all rules are committed. This is assisted slice selection, not whole-volume deployment independence.
+
+Anatomical label semantics must agree with the SABS mapping in third_party/FoB_SAM/dataloaders/dataset_specifics.py; actual label volumes must contain the stated numeric labels. Numeric presence alone cannot independently establish clinical anatomical identity. Any unresolved provenance or mapping contradiction blocks the manifest.
+
+Manifest rule: ascending zero-based native z indices with any target voxel; choose lower median extent index z[(n-1)//2], including for even extents. Same rule for support. Missing organs are explicitly skipped. Require at least two support-available organs in each query patient. Hash image and label bytes, geometry and per-row base-mask content. No decode outcome may guide slice selection. Preserve the 25 historical query-patient exclusion from utility-target construction.
+
+No inference is authorized in this stage. No GPU authorization is inherited from Step 9. Commit this document before reading retrospective prediction outcomes or decoding any base task. An isolated local protocol repository may hold the immutable commit; its actual commit SHA and content SHA256 are recorded externally to avoid self-reference.

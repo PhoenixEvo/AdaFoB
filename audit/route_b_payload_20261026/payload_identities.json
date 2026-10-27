@@ -1,0 +1,62 @@
+{
+  "owner_approved_date": "2026-10-26",
+  "created_utc": "2026-10-26T04:20:40.5338732Z",
+  "version": "payload_identity_v1",
+  "scope": "six approved NIfTI files only; SHA256 of complete decompressed header+voxel payload, not gzip container",
+  "files": [
+    {
+      "stem": "image_8",
+      "payload_sha256": "31461a81a2a38ca0dfc00ea350b6bf0caa4b9d4b6c378d9183a14ab6d3362011",
+      "payload_bytes": 79259152,
+      "original_gzip_matches_locked": true,
+      "payload_name": "image_8.nii",
+      "original_gzip_sha256": "741c21d34db130b8d27ee51f1b64c70bf73ab0e133de377101e14ddeaa801613",
+      "original_gzip_name": "image_8.nii.gz"
+    },
+    {
+      "stem": "label_8",
+      "payload_sha256": "7ca7a012332ded5de68d01c718f82d1b2d4cf4657ee6409db81bbb35bfeef357",
+      "payload_bytes": 39629752,
+      "original_gzip_matches_locked": true,
+      "payload_name": "label_8.nii",
+      "original_gzip_sha256": "18044df2c422857b05f23e8117acaae28d86a12348b6b6cacce4530547b7060f",
+      "original_gzip_name": "label_8.nii.gz"
+    },
+    {
+      "stem": "image_14",
+      "payload_sha256": "bbd24371af547a2e487ce941ac146d727e0175ba9eca63b23e230ef6504a79e4",
+      "payload_bytes": 45442064,
+      "original_gzip_matches_locked": true,
+      "payload_name": "image_14.nii",
+      "original_gzip_sha256": "a6691345666424f4fc9008d296defa2ed7d716fc1ad81b166ffae78ecf717130",
+      "original_gzip_name": "image_14.nii.gz"
+    },
+    {
+      "stem": "label_14",
+      "payload_sha256": "5b1ea335fcfbbd500c425c9d8fcdbf626aa15eec2fe3a38a03ef0e38c704a1b1",
+      "payload_bytes": 22721208,
+      "original_gzip_matches_locked": true,
+      "payload_name": "label_14.nii",
+      "original_gzip_sha256": "af08a9d3b81c1fe3787915628b1621d5d4d934a1980a4295fd70e53e6d4ce81c",
+      "original_gzip_name": "label_14.nii.gz"
+    },
+    {
+      "stem": "image_20",
+      "payload_sha256": "cf6ecec760349314ec37b50823f679c2774d392e3aa3dca32c8bf2844c0b0b11",
+      "payload_bytes": 49669200,
+      "original_gzip_matches_locked": true,
+      "payload_name": "image_20.nii",
+      "original_gzip_sha256": "6668b5faafc0a006cbc59853e73878ef418e84e9edaa4cf3aa4fe3c891d0779c",
+      "original_gzip_name": "image_20.nii.gz"
+    },
+    {
+      "stem": "label_20",
+      "payload_sha256": "1c3ef94b744b1cc4e70b08d34d837c48e9e42401e1be0593294c2a629bc5877b",
+      "payload_bytes": 24834776,
+      "original_gzip_matches_locked": true,
+      "payload_name": "label_20.nii",
+      "original_gzip_sha256": "d8081b62857b36282235d982cfc94a54b3867abdc2e40634d0b6ac0f6ab6ed54",
+      "original_gzip_name": "label_20.nii.gz"
+    }
+  ]
+}

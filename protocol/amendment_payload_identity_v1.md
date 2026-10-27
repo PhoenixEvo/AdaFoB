@@ -1,0 +1,13 @@
+# Owner amendment: decompressed NIfTI payload identity v1
+
+APPROVED by the sole project owner on 2026-10-26. Recorded UTC: 2026-10-26T04:20:38Z.
+
+This supersedes the withdrawn direct-.nii.gz and .blob upload proposals. Neither is authorized or used. Kaggle's approved existing private adafob-env dataset contains plain .nii files. No CT/label data will be uploaded, recompressed, versioned or deleted.
+
+For image_8,label_8,image_14,label_14,image_20,label_20 ONLY, replace remote whole-file gzip SHA256 identity with SHA256 of the entire decompressed .nii payload, including its NIfTI header and voxel bytes. Locally confirm each original .nii.gz still matches its frozen gzip SHA256 before deriving its payload hash. Bind each identity explicitly to its basename; reject missing, extra or mismatched identities. The payload hashes and separate adapter source hashes will be recorded in a subsequent immutable commit before local parity tests or any Kaggle session. A successful plain-file payload check is NOT a passed gzip-container check on Kaggle.
+
+The 70 frozen files, original manifest, inputs.py and verify_manifest remain byte-for-byte unchanged. A separately hashed adapter reuses the frozen reader's numeric/geometry operators and the frozen verifier's slice/mask/geometry checks. Its in-memory identity projection replaces only the six expected file hashes. No scientific slice, mask, dimension, spacing, sform, alignment, RAS/LPS/axis, normalization, candidate, score, budget, seed, dtype, threshold, comparator, CC or metric definition changes. Any local parity, remote payload, geometry, checkpoint or accounting mismatch stops execution and is reported PILOT-BLOCKED.
+
+Local gate: frozen gzip reader versus adapter on exact gunzipped files must produce equal arrays, geometry, slice hashes and mask hashes for all six files/eight cases. Synthetic prediction-persistence glue must save and hash/reload label-free predictions before retrospective scoring can access query labels. Only after these execute successfully may the private Kaggle CPU-only probe start. Only after the CPU probe passes may a T4/T4x2 device0 pilot start under the current2.0 aggregate GPU-hour ceiling and independent session-stop rules. No old test pass is a newly executed pass.
+
+Existing Route B base-label authorization is unchanged; no novel/oracle targets or learned calibration are permitted. Eight-slice pilot evidence is descriptive functionality/cost evidence, not segmentation improvement, utility predictability or manuscript readiness.

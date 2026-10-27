@@ -1,0 +1,49 @@
+[
+  {
+    "sha256": "E3C9CCC47F74FA562E20C56BA11768AA8661B4D69FD170EB815943DF3FF63913",
+    "matches_recorded": true,
+    "path": "D:\\HD-NCKH27\\AdaFoB\\checkpoints\\fob_checkpoints\\exps_train_on_SABS_FSMIS_FoB\\FSMIS_train_SABS_cv0\\ckpt.pth",
+    "fold": 0,
+    "bytes": 214663341,
+    "type": "FoB"
+  },
+  {
+    "sha256": "0F32ACA26495ADB2123BF5F355FA265DD23FCE82AE6054491E23F1ADAEB489D2",
+    "matches_recorded": true,
+    "path": "D:\\HD-NCKH27\\AdaFoB\\checkpoints\\fob_checkpoints\\exps_train_on_SABS_FSMIS_FoB\\FSMIS_train_SABS_cv1\\ckpt.pth",
+    "fold": 1,
+    "bytes": 214663341,
+    "type": "FoB"
+  },
+  {
+    "sha256": "696C2E2BA231D43F9CD0C06E12894A1E8ACD425BCE61E039B50BB8071C7F259A",
+    "matches_recorded": true,
+    "path": "D:\\HD-NCKH27\\AdaFoB\\checkpoints\\fob_checkpoints\\exps_train_on_SABS_FSMIS_FoB\\FSMIS_train_SABS_cv2\\ckpt.pth",
+    "fold": 2,
+    "bytes": 214663341,
+    "type": "FoB"
+  },
+  {
+    "sha256": "526ADB1DA2B745E63D90519877A2D48AF618B11C234284027794F74BFE7CD5DD",
+    "matches_recorded": true,
+    "path": "D:\\HD-NCKH27\\AdaFoB\\checkpoints\\fob_checkpoints\\exps_train_on_SABS_FSMIS_FoB\\FSMIS_train_SABS_cv3\\ckpt.pth",
+    "fold": 3,
+    "bytes": 214663341,
+    "type": "FoB"
+  },
+  {
+    "sha256": "E109842FE12F7F1163DE8CB5859A96089F10A5EA654BD11E209C5BA4EFBC5E00",
+    "matches_recorded": true,
+    "path": "D:\\HD-NCKH27\\AdaFoB\\checkpoints\\fob_checkpoints\\exps_train_on_SABS_FSMIS_FoB\\FSMIS_train_SABS_cv4\\ckpt.pth",
+    "fold": 4,
+    "bytes": 214663341,
+    "type": "FoB"
+  },
+  {
+    "path": "D:\\results\\checkpoints\\sam_vit_b_01ec64.pth",
+    "sha256": "EC2DF62732614E57411CDCF32A23FFDF28910380D03139EE0F4FCBE91EB8C912",
+    "type": "SAM-B",
+    "bytes": 375042383,
+    "matches_recorded": true
+  }
+]

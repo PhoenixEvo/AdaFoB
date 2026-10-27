@@ -1,0 +1,24 @@
+{
+  "seed": 42,
+  "manifest_sha256": "B26D8438444D951A92815BB864E5ED7361A3B63E2CC92353FD0272CB47F26977",
+  "budget_cap_rationale": "Proposed spending/safety limit, not a measured runtime forecast. Counts setup and idle allocation; independent host shutdown also required.",
+  "fob_sha256": "e3c9ccc47f74fa562e20c56ba11768aa8661b4d69fd170eb815943df3ff63913",
+  "rules_sha256": "CC34166C072F2162B7900C68C0A0886E0267327116A35F5AA2EEEF3C9BBCFD2C",
+  "hard_allocation_seconds": 600,
+  "max_configurations_per_slice": 20,
+  "random_seeds": [
+    42,
+    43,
+    44,
+    45
+  ],
+  "sam_b_sha256": "ec2df62732614e57411cdcf32a23ffdf28910380d03139ee0f4fcbe91eb8c912",
+  "allocated_gpu_count": 1,
+  "negative_budget": 2,
+  "version": "route_b_pilot_launch_v1",
+  "max_slices": 8,
+  "max_configurations_total": 160,
+  "status": "PROPOSED awaiting smoke and owner GPU authorization",
+  "expected_gpu": "NVIDIA T4",
+  "entitlement_sha256": "F7289875C9BB13ED01B31AF91319AD718C7A9CB09BC16500F87267DB9370C43C"
+}
