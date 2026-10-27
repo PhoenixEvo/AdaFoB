@@ -321,6 +321,13 @@
       "git_blob_sha1": "490c9ef21060635eb8bd5d54f87b2c97b8ad5cd8"
     },
     {
+      "path": "experiments/utility_feasibility_v1/test_slice_api.py",
+      "kind": "existing_synthetic_test_dependency",
+      "bytes": 4070,
+      "raw_sha256": "8a673b59b8439dce65504202e1c78346f99b0c3671d813f3927723ccd2f93d2f",
+      "git_blob_sha1": "5347316464fab6df831317ee433457032ab00840"
+    },
+    {
       "path": "models/postprocessing.py",
       "kind": "original_candidate",
       "bytes": 2295,
@@ -580,5 +587,6 @@
       "git_blob_sha1": "f07693952bbffcd23c5226255d1f649476ca7ce6"
     }
   ],
-  "self_binding": "This manifest is bound by its Git blob/commit; its raw SHA256 is recorded externally, not recursively."
+  "self_binding": "This manifest is bound by its Git blob/commit; its raw SHA256 is recorded externally, not recursively.",
+  "supplemental_test_dependencies": 1
 }
