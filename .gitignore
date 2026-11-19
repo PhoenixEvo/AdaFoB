@@ -34,3 +34,10 @@ notes/scratch/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# Local credential mirror / run packaging / large binaries
+~/
+experiments/runs/*/kaggle_outputs/*.zip
+experiments/runs/*/kaggle_outputs/unpacked/
+experiments/runs/*/kaggle_outputs_attempt*/
+experiments/runs/*/submission/

@@ -1,0 +1,15 @@
+# Quarantined Results Index (`results/`)
+
+No historical result file was deleted. Files listed below are **quarantined** and **must not be cited as clean Setting I evidence** (see `reports/independent_reassessment_20261118.md` for line-level proof):
+
+## 1. Invalidated / Contaminated Historical Results (Do Not Cite as Setting I)
+
+- **`results/clean_rerun_rank16_unseeded_combined.csv`** (`sha256: c156ebe814d0e0c97de6c3c521b710d5e013a1737d077d5bf706823b87c46929`) and **`results/rank16_clean_statistical_report.md`**: Contaminated splice (`0.000000` max diff against `108` rows of `lora_eval_rank2_combined.csv` + `12` rows of `lora_eval_rank4_combined.csv`) retaining pre-`8d958c2` unreversed `(X, Y, Z)` HD95 spacing (`max 610.0333 mm`).
+- **`results/clean_rerun_rank4_seed42_combined.csv`**, **`results/rank4_clean_statistical_report.md`**, **`results/lora_eval_rank2_combined.csv`**, **`results/lora_eval_rank4_combined.csv`**: Historical Target-Supervised Domain Adaptation only; invalidated for Setting I by Violations `V1` (`train_lora.py:89-91` `ALL_ORGANS = {1,2,3,6}` GT in training), `V2` (`train_lora.py:145-147, 613-621` `*_best.pth` selection on test folds), `V3`, `V4`, and `ViT-H` vs `ViT-B` backbone shift.
+- **`results/gate_d_results_gpu0.csv`**, **`results/gate_d_results_gpu1.csv`**, **`results/phase4_validation.csv`**: Historical bugged AdaFoB PBA evaluations invalidated by Bugs **A1–A5** (`13.50 deg` contour-arc truncation in `FoB.py:432,515`, silent key mismatch `"scale": 6` vs `"nu": 0.02`, hardcoded uint8 `sigma_I = 20.0` on z-score CT in `allocator.py:280`, overwritten/unsorted `SPR` inputs, and `use_skeleton=True` baseline pollution).
+- **Route B Protected Pilot (`experiments/utility_feasibility_v1/scoring_v1.py`, `results/` Route B pilot `INCONCLUSIVE` & `Q1 NO-EXPANSION`)**: Historical diagnostic pilot confounded by Flaws **B1–B3** (`cv0` supervoxel-seen patients `image_8, 14, 20` on untrained small organs, area-asymmetric `af <= lf` veto rejecting strongly net-negative prompts, and extracorporeal CT air dominating `~binary_dilation(m)`).
+
+## 2. Verified Clean Setting I Baselines (Active Reference Ledger)
+
+- **`results/step9_controls_20261024T034851Z/cpu_analysis_v3_20261025T024935616Z_1e6a9939/measurements.csv`**: `120` episodes / `25` patients / `4,009` slices on frozen SAM ViT-B (`torch 2.11.0+cu128`). Patient-balanced CC Dice: `full10 = 81.821%`, `positive0 = 80.640%`, `boundary_near2 = 83.164%`, `GT_greedy_reference = 86.466%`.
+- **`experiments/runs/option_a_reassessment_20261119_v2/kaggle_outputs/measurements.csv`**: `120` episodes / `25` patients / `4,009` slices on frozen SAM ViT-B (`torch 2.11.0+cu130`). Confirmed anchor agreement within `0.0025 pp` vs Step 9 and proved `resp_signed_localring_k2 = 83.854%` (`+0.688 pp` over `boundary_near2`, Recall `94.195%`) and `pba_fixed_k2 = 84.719%` (`+1.553 pp` over `boundary_near2`, HD95 `27.934 mm`, Liver recall trade-off `87.780%`).
