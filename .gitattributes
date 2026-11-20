@@ -1,0 +1,12 @@
+# Preserve exact byte-for-byte line endings for Step-9 SHA256-frozen files
+experiments/run_step4_baselines.py -text
+experiments/run_step5_diagnostics.py -text
+models/postprocessing.py -text
+audit/oracle_definition.md -text
+analysis/controls_v1/*.py -text
+analysis/gate_a/*.py -text
+analysis/rebaseline_v1/*.py -text
+analysis/patient_balanced_summary.py -text
+tests/test_step9_controls.py -text
+third_party/FoB_SAM/** -text
+third_party/FoB_SAM_upstream/** -text

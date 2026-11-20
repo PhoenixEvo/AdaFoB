@@ -41,6 +41,7 @@ from dataloaders.datasets import TestDataset
 from dataloaders.dataset_specifics import get_label_names
 from segment_anything import sam_model_registry, SamPredictor
 from models.postprocessing import filter_connected_components
+from analysis.gate_a.candidate_records import CandidateRunLog
 
 TEST_LABELS = [1, 2, 3, 6]  # SPLEEN, RK, LK, LIVER
 SUPP_IDX = 2
@@ -118,7 +119,7 @@ def compute_volume_metrics(pred, gt, spacing):
     return dice, hd
 
 
-def predict_singlemask(predictor, pos_pts, neg_pts, img_shape):
+def predict_singlemask(predictor, pos_pts, neg_pts, img_shape, audit=None, selected_ids=None, arm=None):
     pts = []
     lbls = []
     if pos_pts is not None and len(pos_pts) > 0:
@@ -128,6 +129,7 @@ def predict_singlemask(predictor, pos_pts, neg_pts, img_shape):
         pts.append(neg_pts)
         lbls.append(np.zeros(len(neg_pts), dtype=np.int32))
 
+    event = audit.decoder_event(selected_ids, arm, evaluated=bool(len(pts))) if audit is not None else None
     if len(pts) == 0:
         return np.zeros(img_shape[:2], dtype=np.uint8)
 
@@ -140,8 +142,10 @@ def predict_singlemask(predictor, pos_pts, neg_pts, img_shape):
             point_labels=all_lbls,
             multimask_output=False,
         )
+        if event is not None: event["outcome"] = "success"
         return (masks[0] > 0).astype(np.uint8)
     except Exception as e:
+        if event is not None: event["outcome"] = "exception:" + type(e).__name__
         print(f"Warning: SAM predict_singlemask exception: {e}", flush=True)
         return np.zeros(img_shape[:2], dtype=np.uint8)
 
@@ -202,6 +206,9 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
 
     labels = get_label_names("SABS")
     os.makedirs(out_dir, exist_ok=True)
+    if glob.glob(os.path.join(out_dir, "step5_diagnostics*.csv")):
+        raise FileExistsError("Use a new output directory; historical results are preserved")
+    candidate_log = CandidateRunLog(os.path.join(out_dir, "candidate_records_f" + "_".join(map(str, folds)) + ".jsonl"))
     
     results = []
     prompt_audit_records = []
@@ -313,6 +320,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                                 )
                                 neg_arr = np.array(fob_out[0]).reshape(-1, 2)[:10]
                                 pos_arr = np.array(fob_out[1]).reshape(-1, 2)[:10]
+                            candidate_log.begin_slice(ep_id, global_z, neg_arr, pos_arr, (H_q, W_q))
                             pos_points_by_z[global_z] = pos_arr
 
                             # Distance transform for spatial surface distance in mm
@@ -348,11 +356,11 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                             predictor_b.set_image(img_rgb)
 
                             # Fixed budgets k in {0, 2, 4, 6, 10}
-                            m_k0 = predict_singlemask(predictor_b, pos_arr, neg_arr[:0], (H_q, W_q))
-                            m_k2 = predict_singlemask(predictor_b, pos_arr, neg_arr[:2], (H_q, W_q))
-                            m_k4 = predict_singlemask(predictor_b, pos_arr, neg_arr[:4], (H_q, W_q))
-                            m_k6 = predict_singlemask(predictor_b, pos_arr, neg_arr[:6], (H_q, W_q))
-                            m_k10 = predict_singlemask(predictor_b, pos_arr, neg_arr[:10], (H_q, W_q))
+                            m_k0 = predict_singlemask(predictor_b, pos_arr, neg_arr[:0], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(0, len(neg_arr)))), arm="prefix_0")
+                            m_k2 = predict_singlemask(predictor_b, pos_arr, neg_arr[:2], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(2, len(neg_arr)))), arm="prefix_2")
+                            m_k4 = predict_singlemask(predictor_b, pos_arr, neg_arr[:4], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(4, len(neg_arr)))), arm="prefix_4")
+                            m_k6 = predict_singlemask(predictor_b, pos_arr, neg_arr[:6], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(6, len(neg_arr)))), arm="prefix_6")
+                            m_k10 = predict_singlemask(predictor_b, pos_arr, neg_arr[:10], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(10, len(neg_arr)))), arm="prefix_10")
 
                             vols['k0'][global_z] = m_k0
                             vols['k2'][global_z] = m_k2
@@ -367,7 +375,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                                     if n_pool > 0:
                                         rng = np.random.RandomState(s + global_z * 100)
                                         chosen_idx = rng.choice(n_pool, size=min(k, n_pool), replace=False)
-                                        m_rand = predict_singlemask(predictor_b, pos_arr, neg_arr[chosen_idx], (H_q, W_q))
+                                        m_rand = predict_singlemask(predictor_b, pos_arr, neg_arr[chosen_idx], (H_q, W_q), audit=candidate_log, selected_ids=chosen_idx.tolist(), arm=f"random_k{k}_s{s}")
                                     else:
                                         m_rand = m_k0
                                     vols[f'rand_k{k}_s{s}'][global_z] = m_rand
@@ -375,12 +383,14 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                             # Prefix budget oracle (best k in 0..10 for this slice)
                             best_dice = compute_slice_dice(m_k0, gt_slice)
                             best_mask_prefix = m_k0
+                            best_prefix_ids = []
                             for k_cand in range(1, 11):
-                                m_cand = predict_singlemask(predictor_b, pos_arr, neg_arr[:k_cand], (H_q, W_q))
+                                m_cand = predict_singlemask(predictor_b, pos_arr, neg_arr[:k_cand], (H_q, W_q), audit=candidate_log, selected_ids=list(range(min(k_cand, len(neg_arr)))), arm="GT_prefix_trial")
                                 d_cand = compute_slice_dice(m_cand, gt_slice)
                                 if d_cand > best_dice:
                                     best_dice = d_cand
                                     best_mask_prefix = m_cand
+                                    best_prefix_ids = list(range(min(k_cand, len(neg_arr))))
                             vols['prefix_oracle'][global_z] = best_mask_prefix
 
                             # Greedy subset oracle (greedily adds points from candidate pool that improve slice Dice)
@@ -395,7 +405,7 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                                 step_best_mask = None
                                 for idx_cand in remaining_indices:
                                     trial_pts = neg_arr[current_selected + [idx_cand]]
-                                    m_trial = predict_singlemask(predictor_b, pos_arr, trial_pts, (H_q, W_q))
+                                    m_trial = predict_singlemask(predictor_b, pos_arr, trial_pts, (H_q, W_q), audit=candidate_log, selected_ids=current_selected + [idx_cand], arm="GT_greedy_trial")
                                     d_trial = compute_slice_dice(m_trial, gt_slice)
                                     if d_trial > step_best_dice + 1e-4:
                                         step_best_dice = d_trial
@@ -409,6 +419,9 @@ def run_diagnostics(folds, gpu_id, out_dir, max_episodes=None):
                                 else:
                                     break
                             vols['greedy_oracle'][global_z] = current_best_mask
+                            candidate_log.final_choice('GT_prefix_final', best_prefix_ids)
+                            candidate_log.final_choice('GT_greedy_final', current_selected)
+                            candidate_log.finish_slice()
 
                 # Compute 3D Metrics across all arms
                 row_metrics = {

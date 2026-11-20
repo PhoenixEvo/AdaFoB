@@ -1,3 +1,0 @@
-# logs/
-
-Run logs (gitignored).

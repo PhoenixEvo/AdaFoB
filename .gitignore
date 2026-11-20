@@ -14,30 +14,38 @@ venv.bak/
 
 # Data (never commit datasets)
 data/*
+!data/README.md
 !data/download_instructions.md
+!data/preprocess.py
 
-# Large binary masks from pilot (regenerated on Kaggle)
-results/pilot/masks/
-
-# SAM checkpoints
+# Checkpoints and heavy outputs
 checkpoints/
 *.pth
-
-# Logs (regenerated)
+outputs/
 runs/
 
-# Scratch
-notes/scratch/
-
-# Agent config
+# Agent config and notebook checkpoints
 .agent/
-
-# Notebook checkpoints
 .ipynb_checkpoints/
 
-# Local credential mirror / run packaging / large binaries
+# Local run outputs, packaging bundles, and archived Step-6..9 binary artifacts
 ~/
-experiments/runs/*/kaggle_outputs/*.zip
-experiments/runs/*/kaggle_outputs/unpacked/
-experiments/runs/*/kaggle_outputs_attempt*/
-experiments/runs/*/submission/
+experiments/runs/
+results/baselines/
+results/pilot/
+results/step4_baselines/
+results/step5_diagnostics/
+results/step5_kaggle_log/
+results/step8_rebaseline_*/
+results/step9_controls_*/
+audit/step6_*/
+audit/step7_*/
+audit/step8_*/
+audit/step9_*/
+audit/research_cycle_*/
+audit/utility_feasibility_*/
+audit/environment_gpu.json
+audit/candidate_ordering.md
+audit/mask_token_truth_table.csv
+audit/metric_definition_checks.md
+audit/test_status*.csv
