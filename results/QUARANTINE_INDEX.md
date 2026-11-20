@@ -1,6 +1,6 @@
 # Quarantined Results Index (`results/`)
 
-No historical result file was deleted. Files listed below are **quarantined** and **must not be cited as clean Setting I evidence** (see `reports/independent_reassessment_20261118.md` for line-level proof):
+All invalidated / contaminated historical files listed in Section 1 were permanently preserved in Git at tag `backup/pre-cleanup-20261120` (commit `0c5cb2c` on `miccai2027/adafob-v2`, and on `main` at `063192a`), and then removed from the active working tree on `2026-11-20` after explicit user approval to keep the repository clean for external review. They **must not be cited as clean Setting I evidence** (see `reports/independent_reassessment_20261118.md` for line-level proof):
 
 ## 1. Invalidated / Contaminated Historical Results (Do Not Cite as Setting I)
 
